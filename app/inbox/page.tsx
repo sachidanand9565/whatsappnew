@@ -15,6 +15,12 @@ interface TemplateContent {
   footer: string;
   buttons: { type: string; text: string }[];
 }
+// MySQL returns timestamps without timezone — append Z so JS treats them as UTC → local conversion
+function toLocalDate(ts: string): Date {
+  if (!ts) return new Date();
+  return new Date(ts.includes('Z') || ts.includes('+') ? ts : ts.replace(' ', 'T') + 'Z');
+}
+
 function parseTemplateContent(content: string): TemplateContent | null {
   try {
     const p = JSON.parse(content);
@@ -203,7 +209,7 @@ function ProfilePanel({ contact, templateMsgCount, sessionMsgCount }: { contact:
     ...(contact.chat_status === 'intervened' && contact.intervened_by
       ? [{ label: 'Intervened By', value: <span className="font-semibold text-orange-600">{contact.intervened_by}</span> }]
       : []),
-    { label: 'Last Active',       value: contact.updated_at ? new Date(contact.updated_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—' },
+    { label: 'Last Active',       value: contact.updated_at ? toLocalDate(contact.updated_at).toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12: true }) : '—' },
     { label: 'Template Messages', value: templateMsgCount },
     { label: 'Session Messages',  value: sessionMsgCount },
     { label: 'Source',            value: contact.source || '—' },
@@ -343,12 +349,14 @@ export default function InboxPage() {
 
   // 24h session: open if user messaged us OR we sent a template within 24h
   const isSessionOpen = messages.some((m) =>
-    Date.now() - new Date(m.created_at).getTime() < 24 * 60 * 60 * 1000 &&
+    Date.now() - toLocalDate(m.created_at).getTime() < 24 * 60 * 60 * 1000 &&
     (m.direction === 'inbound' || (m.direction === 'outbound' && m.type === 'template'))
   );
 
   function selectContact(c: Contact) {
     setSelected(c);
+    // Clear unread badge locally — reappears when next message arrives via SSE
+    setContacts(prev => prev.map(x => x.id === c.id ? { ...x, unread_count: 0 } : x));
   }
 
   useEffect(() => {
@@ -515,7 +523,7 @@ export default function InboxPage() {
                     </p>
                     {c.last_message_at && (
                       <span className="text-xs text-gray-400 flex-shrink-0">
-                        {new Date(c.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {toLocalDate(c.last_message_at!).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
                       </span>
                     )}
                   </div>
@@ -560,16 +568,34 @@ export default function InboxPage() {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-[#f0f0f0]" ref={chatRef}
             style={{ backgroundImage: 'radial-gradient(circle, #d4d4d4 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
-            {messages.map((m) => {
+            {messages.map((m, idx) => {
               const tpl      = parseTemplateContent(m.content);
               const media    = parseMediaContent(m.content);
               const location = parseLocationContent(m.content);
               const contacts = parseContactsContent(m.content);
               const repliedMsg = m.replied_to_wamid ? messages.find((x) => x.wamid === m.replied_to_wamid) : null;
-              const timeStr    = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const msgDate  = toLocalDate(m.created_at);
+              const timeStr  = msgDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+              // Date separator logic
+              const prevDate   = idx > 0 ? toLocalDate(messages[idx - 1].created_at) : null;
+              const isNewDay   = !prevDate || msgDate.toDateString() !== prevDate.toDateString();
+              const today      = new Date();
+              const yesterday  = new Date(); yesterday.setDate(today.getDate() - 1);
+              const dateLabel  = msgDate.toDateString() === today.toDateString()     ? 'Today'
+                               : msgDate.toDateString() === yesterday.toDateString() ? 'Yesterday'
+                               : msgDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
               return (
-                <div key={m.id} id={`msg-${m.wamid}`}
+                <div key={m.id}>
+                  {isNewDay && (
+                    <div className="flex items-center justify-center my-3">
+                      <span className="bg-white/80 text-gray-500 text-xs font-medium px-3 py-1 rounded-full shadow-sm">
+                        {dateLabel}
+                      </span>
+                    </div>
+                  )}
+                <div id={`msg-${m.wamid}`}
                   className={`flex transition-all ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
                   {tpl ? (
                     <TemplateBubble data={tpl} status={m.status} time={timeStr} />
@@ -621,6 +647,7 @@ export default function InboxPage() {
                       </div>
                     </div>
                   )}
+                </div>
                 </div>
               );
             })}
