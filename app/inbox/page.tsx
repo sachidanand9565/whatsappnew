@@ -494,10 +494,7 @@ export default function InboxPage() {
               if (tab === 'all') return true;
               if (tab === 'replied') return Number(c.inbound_count) > 0;
               // unread tab
-              if (!Number(c.unread_count)) return false;
-              const viewedAt = readAt[c.id];
-              if (!viewedAt) return true;
-              return c.last_message_at && new Date(c.last_message_at) > new Date(viewedAt);
+              return Number(c.unread_count) > 0;
             })
             .map((c) => {
             const unread = Number(c.unread_count) || 0;
