@@ -17,22 +17,40 @@ export async function GET(req: NextRequest) {
 
     if (!contactId) return apiError('contactId required');
 
-    // Fetch messages from ALL contact records sharing the same phone number.
-    // This merges conversations that got split across two DB rows (e.g. one
-    // created by api_campaign send and another created by an inbound webhook).
+    // Fetch all messages for this contact's phone number AND any outbound
+    // messages that were replied-to (handles templates saved under a different
+    // contact_id or with contact_id = NULL due to race conditions).
     const messages = await query<RowDataPacket[]>(
       `SELECT m.*, c.name as contact_name, c.phone as contact_phone
        FROM messages m
        LEFT JOIN contacts c ON c.id = m.contact_id
        WHERE m.workspace_id = ?
-         AND m.contact_id IN (
-           SELECT id FROM contacts
-           WHERE workspace_id = ?
-             AND phone = (SELECT phone FROM contacts WHERE id = ? AND workspace_id = ?)
+         AND (
+           m.contact_id IN (
+             SELECT id FROM contacts
+             WHERE workspace_id = ?
+               AND phone = (SELECT phone FROM contacts WHERE id = ? AND workspace_id = ?)
+           )
+           OR m.wamid IN (
+             SELECT replied_to_wamid FROM messages
+             WHERE workspace_id = ?
+               AND replied_to_wamid IS NOT NULL
+               AND contact_id IN (
+                 SELECT id FROM contacts
+                 WHERE workspace_id = ?
+                   AND phone = (SELECT phone FROM contacts WHERE id = ? AND workspace_id = ?)
+               )
+           )
          )
        ORDER BY m.created_at DESC
        LIMIT ?`,
-      [payload.workspaceId, payload.workspaceId, contactId, payload.workspaceId, limit]
+      [
+        payload.workspaceId,
+        payload.workspaceId, contactId, payload.workspaceId,
+        payload.workspaceId,
+        payload.workspaceId, contactId, payload.workspaceId,
+        limit,
+      ]
     );
 
     return apiSuccess(messages.reverse()); // oldest first

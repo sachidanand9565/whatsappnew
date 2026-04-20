@@ -298,7 +298,16 @@ export default function InboxPage() {
   const chatRef                     = useRef<HTMLDivElement>(null);
 
   const loadContacts = useCallback(() => {
-    apiFetch('/api/contacts?limit=200&chatStatus=active').then((r) => setContacts(r.data?.data || []));
+    apiFetch('/api/contacts?limit=200&chatStatus=active').then((r) => {
+      const readMap: Record<string, number> = JSON.parse(localStorage.getItem('inboxRead') || '{}');
+      const data = (r.data?.data || []).map((c: Contact) => {
+        const readAt   = readMap[String(c.id)];
+        const lastMsgAt = c.last_message_at ? toLocalDate(c.last_message_at).getTime() : 0;
+        if (readAt && lastMsgAt <= readAt) return { ...c, unread_count: 0 };
+        return c;
+      });
+      setContacts(data);
+    });
   }, []);
 
   useEffect(() => {
@@ -355,7 +364,10 @@ export default function InboxPage() {
 
   function selectContact(c: Contact) {
     setSelected(c);
-    // Clear unread badge locally — reappears when next message arrives via SSE
+    // Persist read state so badge stays gone after refresh, but reappears on new messages
+    const readMap = JSON.parse(localStorage.getItem('inboxRead') || '{}');
+    readMap[String(c.id)] = Date.now();
+    localStorage.setItem('inboxRead', JSON.stringify(readMap));
     setContacts(prev => prev.map(x => x.id === c.id ? { ...x, unread_count: 0 } : x));
   }
 
