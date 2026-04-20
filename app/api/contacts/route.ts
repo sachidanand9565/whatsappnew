@@ -17,24 +17,23 @@ export async function GET(req: NextRequest) {
     const status     = sp.get('status') || '';
     const chatStatus = sp.get('chatStatus') || '';
 
-    // Single-pass aggregation — avoids N correlated subqueries per contact
     let sql    = `
       SELECT c.*,
-        COALESCE(SUM(CASE WHEN m.direction = 'inbound'
-          AND m.created_at > COALESCE(lo.last_out, '1970-01-01') THEN 1 ELSE 0 END), 0) AS unread_count,
-        COALESCE(SUM(CASE WHEN m.direction = 'inbound' THEN 1 ELSE 0 END), 0)           AS inbound_count,
-        MAX(m.created_at)                                                                AS last_message_at
-      FROM contacts c
-      LEFT JOIN messages m ON m.contact_id = c.id AND m.workspace_id = c.workspace_id
-      LEFT JOIN (
-        SELECT contact_id, MAX(created_at) AS last_out
-        FROM messages WHERE workspace_id = ? AND direction = 'outbound'
-        GROUP BY contact_id
-      ) lo ON lo.contact_id = c.id
-      WHERE c.workspace_id = ?`;
+        (SELECT COUNT(*) FROM messages m
+         WHERE m.contact_id = c.id AND m.direction = 'inbound'
+           AND m.created_at > COALESCE(
+             (SELECT MAX(m2.created_at) FROM messages m2
+              WHERE m2.contact_id = c.id AND m2.direction = 'outbound'),
+             '1970-01-01'
+           )
+        ) AS unread_count,
+        (SELECT COUNT(*) FROM messages mi
+         WHERE mi.contact_id = c.id AND mi.direction = 'inbound'
+        ) AS inbound_count,
+        (SELECT MAX(m3.created_at) FROM messages m3 WHERE m3.contact_id = c.id) AS last_message_at
+      FROM contacts c WHERE c.workspace_id = ?`;
     let countSql = 'SELECT COUNT(*) as total FROM contacts WHERE workspace_id = ?';
-    // First param is for the lo subquery workspace_id, second for outer WHERE
-    const params: unknown[] = [payload.workspaceId, payload.workspaceId];
+    const params: unknown[] = [payload.workspaceId];
 
     if (search) {
       sql       += ' AND (c.name LIKE ? OR c.phone LIKE ? OR c.email LIKE ?)';
@@ -54,7 +53,7 @@ export async function GET(req: NextRequest) {
       countSql += " AND (chat_status IS NULL OR chat_status != 'resolved')";
     }
 
-    sql += ' GROUP BY c.id ORDER BY last_message_at DESC, c.created_at DESC LIMIT ? OFFSET ?';
+    sql += ' ORDER BY last_message_at DESC, c.created_at DESC LIMIT ? OFFSET ?';
     const listParams  = [...params, limit, offset];
     const countParams = params;
 
