@@ -387,162 +387,99 @@ export default function SettingsPage() {
   const isConfigured = isConnected;
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="space-y-4">
       <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
 
-      {/* ── Meta Embedded Signup ───────────────────────────────── */}
-      <div className="card space-y-4">
-        <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center">
-            <Facebook size={18} className="text-white" />
-          </div>
-          <div>
-            <h2 className="font-semibold text-gray-900">Connect via Facebook</h2>
-            <p className="text-xs text-gray-400">One-click setup — automatically configures webhook & imports templates</p>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
 
-        {!APP_ID && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-700">
-            <p className="font-semibold">Set <code className="bg-yellow-100 px-1 rounded">NEXT_PUBLIC_FACEBOOK_APP_ID</code> in your .env to enable this.</p>
-          </div>
-        )}
+        {/* ── LEFT COLUMN ── */}
+        <div className="space-y-6">
 
-        {isConnected ? (
-          <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-            <div className="flex items-center gap-3">
-              <CheckCircle size={18} className="text-green-600" />
+          {/* Meta Embedded Signup */}
+          <div className="card space-y-4">
+            <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center">
+                <Facebook size={18} className="text-white" />
+              </div>
               <div>
-                <p className="text-sm font-semibold text-green-800">WhatsApp Business Connected</p>
-                <p className="text-xs text-gray-500 font-mono mt-0.5">
-                  WABA: {form.waba_id} · Phone ID: {form.phone_number_id}
+                <h2 className="font-semibold text-gray-900">Connect via Facebook</h2>
+                <p className="text-xs text-gray-400">One-click setup — automatically configures webhook & imports templates</p>
+              </div>
+            </div>
+
+            {!APP_ID && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-700">
+                <p className="font-semibold">Set <code className="bg-yellow-100 px-1 rounded">NEXT_PUBLIC_FACEBOOK_APP_ID</code> in your .env to enable this.</p>
+              </div>
+            )}
+
+            {isConnected ? (
+              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <CheckCircle size={18} className="text-green-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-green-800">WhatsApp Business Connected</p>
+                    <p className="text-xs text-gray-500 font-mono mt-0.5">
+                      WABA: {form.waba_id} · Phone ID: {form.phone_number_id}
+                    </p>
+                  </div>
+                </div>
+                {APP_ID && (
+                  <button
+                    onClick={loginWithFacebook}
+                    disabled={!fbLoaded || fbLoading || connecting}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50 flex items-center gap-1">
+                    {(fbLoading || connecting) && <Loader2 size={12} className="animate-spin" />}
+                    Reconnect
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={loginWithFacebook}
+                disabled={!APP_ID || !fbLoaded || fbLoading || connecting}
+                className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-50">
+                {(fbLoading || connecting)
+                  ? <><Loader2 size={18} className="animate-spin" /> Connecting...</>
+                  : <><Facebook size={18} /> Connect WhatsApp Business Account</>}
+              </button>
+            )}
+
+            <div className="text-xs text-gray-400 space-y-1">
+              <p>✓ Automatically detects your WABA ID, Phone Number ID & Access Token</p>
+              <p>✓ Subscribes Meta webhook for messages, delivery & read receipts</p>
+              <p>✓ Imports all approved templates from Meta into your account</p>
+            </div>
+          </div>
+
+          {/* Meta Webhook URL */}
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+            <p className="font-semibold text-blue-800 text-sm">Your Webhook URL — Add this in Meta App Dashboard</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-mono text-blue-900 break-all">
+                {webhookUrl}
+              </code>
+              <button onClick={() => copyToClipboard(webhookUrl)} className="text-blue-600 hover:text-blue-800 p-2 flex-shrink-0">
+                <Copy size={16} />
+              </button>
+            </div>
+            <p className="text-xs text-blue-600">Meta App Dashboard → WhatsApp → Configuration → Webhook URL & Verify Token</p>
+          </div>
+ {/* Custom Chatbot Webhooks */}
+          <div className="card space-y-5">
+            <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
+              <Webhook size={18} className="text-whatsapp-teal" />
+              <div>
+                <h2 className="font-semibold text-gray-900">Custom Chatbot Webhooks</h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Every inbound message is forwarded to all active webhooks in parallel.
                 </p>
               </div>
             </div>
-            {APP_ID && (
-              <button
-                onClick={loginWithFacebook}
-                disabled={!fbLoaded || fbLoading || connecting}
-                className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50 flex items-center gap-1">
-                {(fbLoading || connecting) && <Loader2 size={12} className="animate-spin" />}
-                Reconnect
-              </button>
-            )}
-          </div>
-        ) : (
-          <button
-            onClick={loginWithFacebook}
-            disabled={!APP_ID || !fbLoaded || fbLoading || connecting}
-            className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-50">
-            {(fbLoading || connecting)
-              ? <><Loader2 size={18} className="animate-spin" /> Connecting...</>
-              : <><Facebook size={18} /> Connect WhatsApp Business Account</>}
-          </button>
-        )}
 
-        <div className="text-xs text-gray-400 space-y-1">
-          <p>✓ Automatically detects your WABA ID, Phone Number ID & Access Token</p>
-          <p>✓ Subscribes Meta webhook for messages, delivery & read receipts</p>
-          <p>✓ Imports all approved templates from Meta into your account</p>
-        </div>
-      </div>
-
-      {/* Credentials source banner */}
-      {credSource === 'env' && (
-        <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-4 flex items-start gap-3">
-          <AlertTriangle size={18} className="text-yellow-600 flex-shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="font-semibold text-yellow-800">Credentials loaded from .env file</p>
-            <p className="text-yellow-700 mt-0.5">
-              Credentials are in <code className="bg-yellow-100 px-1 rounded">.env.local</code> but not saved to DB.
-              Click <strong>Save Settings</strong> below.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Meta Webhook URL */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
-        <p className="font-semibold text-blue-800 text-sm">Your Webhook URL — Add this in Meta App Dashboard</p>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-mono text-blue-900 break-all">
-            {webhookUrl}
-          </code>
-          <button onClick={() => copyToClipboard(webhookUrl)} className="text-blue-600 hover:text-blue-800 p-2 flex-shrink-0">
-            <Copy size={16} />
-          </button>
-        </div>
-        <p className="text-xs text-blue-600">Meta App Dashboard → WhatsApp → Configuration → Webhook URL & Verify Token</p>
-      </div>
-
-      {/* Manual credentials form */}
-      <form onSubmit={save} className="card space-y-5">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-          <h2 className="font-semibold text-gray-900">WhatsApp API Credentials <span className="text-xs font-normal text-gray-400">(manual)</span></h2>
-          {isConfigured && (
-            <button type="button" onClick={testConnection} disabled={testing}
-              className="text-sm text-whatsapp-teal hover:text-whatsapp-dark font-medium flex items-center gap-1.5 disabled:opacity-50">
-              {testing ? '⏳ Testing...' : '🔌 Test Connection'}
-            </button>
-          )}
-        </div>
-
-        <div>
-          <label className="form-label">Business Name</label>
-          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="input" placeholder="Acme Corp" />
-        </div>
-        <div>
-          <label className="form-label">Phone Number ID *</label>
-          <input value={form.phone_number_id} onChange={(e) => setForm({ ...form, phone_number_id: e.target.value })}
-            className="input font-mono" placeholder="930245630177351" required />
-        </div>
-        <div>
-          <label className="form-label">WABA ID *</label>
-          <input value={form.waba_id} onChange={(e) => setForm({ ...form, waba_id: e.target.value })}
-            className="input font-mono" placeholder="1736454720919400" required />
-        </div>
-        <div>
-          <label className="form-label">Permanent Access Token *</label>
-          <div className="relative">
-            <input type={showToken ? 'text' : 'password'} value={form.access_token}
-              onChange={(e) => setForm({ ...form, access_token: e.target.value })}
-              className="input pr-10 font-mono text-xs" placeholder="EAAxxxxx..." required />
-            <button type="button" onClick={() => setShowToken((s) => !s)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-              {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
-        </div>
-        <div>
-          <label className="form-label">Verify Token <span className="font-normal text-gray-400 text-xs">(copy to Meta webhook setup)</span></label>
-          <div className="flex gap-2">
-            <input value={form.verify_token} readOnly className="input font-mono bg-gray-50 flex-1" />
-            <button type="button" onClick={() => copyToClipboard(form.verify_token)}
-              className="btn-secondary px-3 flex-shrink-0"><Copy size={16} /></button>
-          </div>
-        </div>
-        <button type="submit" disabled={saving}
-          className="btn-primary flex items-center gap-2 w-full justify-center">
-          <Save size={16} />{saving ? 'Saving...' : 'Save Settings'}
-        </button>
-      </form>
-
-      {/* ── Custom Chatbot Webhooks ──────────────────────────────── */}
-      <div className="card space-y-5">
-        <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-          <Webhook size={18} className="text-whatsapp-teal" />
-          <div>
-            <h2 className="font-semibold text-gray-900">Custom Chatbot Webhooks</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Every inbound message is forwarded to all active webhooks in parallel.
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-600">
-          <p className="font-semibold text-gray-700 mb-1.5">Payload your server will receive:</p>
-          <pre className="bg-gray-900 text-green-400 rounded p-2 overflow-x-auto leading-relaxed">{`{
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-600">
+              <p className="font-semibold text-gray-700 mb-1.5">Payload your server will receive:</p>
+              <pre className="bg-gray-900 text-green-400 rounded p-2 overflow-x-auto leading-relaxed">{`{
   "event": "message.received",
   "workspace_id": 1,
   "contact": { "id": 42, "phone": "919876543210" },
@@ -553,68 +490,145 @@ export default function SettingsPage() {
     "timestamp": "1700000000"
   }
 }`}</pre>
-          <p className="text-gray-500 pt-2">
-            Reply: <code className="bg-gray-200 px-1 rounded">POST /api/send-message</code>
-            {' · '}Signature: <code className="bg-gray-200 px-1 rounded">X-Webhook-Signature: sha256=...</code>
-          </p>
-        </div>
+              <p className="text-gray-500 pt-2">
+                Reply: <code className="bg-gray-200 px-1 rounded">POST /api/send-message</code>
+                {' · '}Signature: <code className="bg-gray-200 px-1 rounded">X-Webhook-Signature: sha256=...</code>
+              </p>
+            </div>
 
-        {hooks.length > 0 && (
-          <div className="space-y-2">
-            {hooks.map((hook) => (
-              <div key={hook.id}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors
-                  ${hook.is_active ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50 opacity-60'}`}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-800">{hook.name}</p>
-                  <p className="text-xs text-gray-400 truncate font-mono">{hook.url}</p>
-                  {hook.secret && <p className="text-xs text-gray-300 mt-0.5">🔒 Secret configured</p>}
-                </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <button onClick={() => testHook(hook)} disabled={testingId === hook.id} title="Send test"
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-whatsapp-teal hover:bg-green-50 transition-colors disabled:opacity-40">
-                    <RefreshCw size={15} className={testingId === hook.id ? 'animate-spin' : ''} />
-                  </button>
-                  <button onClick={() => toggleHook(hook)} title={hook.is_active ? 'Disable' : 'Enable'}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-whatsapp-teal hover:bg-green-50 transition-colors">
-                    {hook.is_active
-                      ? <ToggleRight size={18} className="text-whatsapp-green" />
-                      : <ToggleLeft size={18} />}
-                  </button>
-                  <button onClick={() => deleteHook(hook.id)} title="Delete"
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
-                    <Trash2 size={15} />
+            {hooks.length > 0 && (
+              <div className="space-y-2">
+                {hooks.map((hook) => (
+                  <div key={hook.id}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors
+                      ${hook.is_active ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50 opacity-60'}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">{hook.name}</p>
+                      <p className="text-xs text-gray-400 truncate font-mono">{hook.url}</p>
+                      {hook.secret && <p className="text-xs text-gray-300 mt-0.5">🔒 Secret configured</p>}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button onClick={() => testHook(hook)} disabled={testingId === hook.id} title="Send test"
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-whatsapp-teal hover:bg-green-50 transition-colors disabled:opacity-40">
+                        <RefreshCw size={15} className={testingId === hook.id ? 'animate-spin' : ''} />
+                      </button>
+                      <button onClick={() => toggleHook(hook)} title={hook.is_active ? 'Disable' : 'Enable'}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-whatsapp-teal hover:bg-green-50 transition-colors">
+                        {hook.is_active
+                          ? <ToggleRight size={18} className="text-whatsapp-green" />
+                          : <ToggleLeft size={18} />}
+                      </button>
+                      <button onClick={() => deleteHook(hook.id)} title="Delete"
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {hooks.length === 0 && (
+              <p className="text-center text-gray-400 text-sm py-2">No webhooks added yet</p>
+            )}
+
+            <form onSubmit={addWebhook} className="border border-dashed border-gray-300 rounded-lg p-4 space-y-3 bg-gray-50">
+              <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Plus size={15} /> Add New Webhook</p>
+              <div className="grid grid-cols-2 gap-3">
+                <input value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                  className="input text-sm" placeholder="Name (e.g. My Bot)" required />
+                <div className="relative">
+                  <input type={showAddSecret ? 'text' : 'password'} value={addForm.secret}
+                    onChange={(e) => setAddForm({ ...addForm, secret: e.target.value })}
+                    className="input text-sm pr-9 font-mono" placeholder="Secret (optional)" />
+                  <button type="button" onClick={() => setShowAddSecret((s) => !s)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400">
+                    {showAddSecret ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-        {hooks.length === 0 && (
-          <p className="text-center text-gray-400 text-sm py-2">No webhooks added yet</p>
-        )}
-
-        <form onSubmit={addWebhook} className="border border-dashed border-gray-300 rounded-lg p-4 space-y-3 bg-gray-50">
-          <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Plus size={15} /> Add New Webhook</p>
-          <div className="grid grid-cols-2 gap-3">
-            <input value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
-              className="input text-sm" placeholder="Name (e.g. My Bot)" required />
-            <div className="relative">
-              <input type={showAddSecret ? 'text' : 'password'} value={addForm.secret}
-                onChange={(e) => setAddForm({ ...addForm, secret: e.target.value })}
-                className="input text-sm pr-9 font-mono" placeholder="Secret (optional)" />
-              <button type="button" onClick={() => setShowAddSecret((s) => !s)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400">
-                {showAddSecret ? <EyeOff size={14} /> : <Eye size={14} />}
+              <input value={addForm.url} onChange={(e) => setAddForm({ ...addForm, url: e.target.value })}
+                className="input text-sm font-mono" placeholder="https://your-server.com/webhook" required />
+              <button type="submit" disabled={adding} className="btn-primary text-sm flex items-center gap-2">
+                <Plus size={15} />{adding ? 'Adding...' : 'Add Webhook'}
               </button>
-            </div>
+            </form>
           </div>
-          <input value={addForm.url} onChange={(e) => setAddForm({ ...addForm, url: e.target.value })}
-            className="input text-sm font-mono" placeholder="https://your-server.com/webhook" required />
-          <button type="submit" disabled={adding} className="btn-primary text-sm flex items-center gap-2">
-            <Plus size={15} />{adding ? 'Adding...' : 'Add Webhook'}
-          </button>
-        </form>
+        </div>
+
+        {/* ── RIGHT COLUMN ── */}
+        <div className="space-y-6">
+
+          {/* Credentials source banner */}
+          {credSource === 'env' && (
+            <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-4 flex items-start gap-3">
+              <AlertTriangle size={18} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-semibold text-yellow-800">Credentials loaded from .env file</p>
+                <p className="text-yellow-700 mt-0.5">
+                  Credentials are in <code className="bg-yellow-100 px-1 rounded">.env.local</code> but not saved to DB.
+                  Click <strong>Save Settings</strong> below.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Manual credentials form */}
+          <form onSubmit={save} className="card space-y-5">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <h2 className="font-semibold text-gray-900">WhatsApp API Credentials <span className="text-xs font-normal text-gray-400">(manual)</span></h2>
+              {isConfigured && (
+                <button type="button" onClick={testConnection} disabled={testing}
+                  className="text-sm text-whatsapp-teal hover:text-whatsapp-dark font-medium flex items-center gap-1.5 disabled:opacity-50">
+                  {testing ? '⏳ Testing...' : '🔌 Test Connection'}
+                </button>
+              )}
+            </div>
+
+            <div>
+              <label className="form-label">Business Name</label>
+              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className="input" placeholder="Acme Corp" />
+            </div>
+            <div>
+              <label className="form-label">Phone Number ID *</label>
+              <input value={form.phone_number_id} onChange={(e) => setForm({ ...form, phone_number_id: e.target.value })}
+                className="input font-mono" placeholder="930245630177351" required />
+            </div>
+            <div>
+              <label className="form-label">WABA ID *</label>
+              <input value={form.waba_id} onChange={(e) => setForm({ ...form, waba_id: e.target.value })}
+                className="input font-mono" placeholder="1736454720919400" required />
+            </div>
+            <div>
+              <label className="form-label">Permanent Access Token *</label>
+              <div className="relative">
+                <input type={showToken ? 'text' : 'password'} value={form.access_token}
+                  onChange={(e) => setForm({ ...form, access_token: e.target.value })}
+                  className="input pr-10 font-mono text-xs" placeholder="EAAxxxxx..." required />
+                <button type="button" onClick={() => setShowToken((s) => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="form-label">Verify Token <span className="font-normal text-gray-400 text-xs">(copy to Meta webhook setup)</span></label>
+              <div className="flex gap-2">
+                <input value={form.verify_token} readOnly className="input font-mono bg-gray-50 flex-1" />
+                <button type="button" onClick={() => copyToClipboard(form.verify_token)}
+                  className="btn-secondary px-3 flex-shrink-0"><Copy size={16} /></button>
+              </div>
+            </div>
+            <button type="submit" disabled={saving}
+              className="btn-primary flex items-center gap-2 w-full justify-center">
+              <Save size={16} />{saving ? 'Saving...' : 'Save Settings'}
+            </button>
+          </form>
+
+         
+
+        </div>
+        
       </div>
 
       {/* Modals */}
