@@ -107,18 +107,30 @@ export async function POST(
       }
     }
 
+    // ── Resolve contact name ──────────────────────────────────
+    const explicitName  = (rawBody.contactName as string) || null;
+    const firstParam    = body.templateParams?.[0];
+    const autoName      = (firstParam && !firstParam.startsWith('$')) ? firstParam : null;
+    const contactName   = explicitName || autoName || null;
+
     // ── Upsert contact ───────────────────────────────────────
     const existing = await query<RowDataPacket[]>(
-      'SELECT id FROM contacts WHERE workspace_id = ? AND phone = ? LIMIT 1',
+      'SELECT id, name FROM contacts WHERE workspace_id = ? AND phone = ? LIMIT 1',
       [payload.workspaceId, normalizedPhone]
     );
     let contactId: number;
     if (existing.length > 0) {
       contactId = existing[0].id as number;
+      if (contactName && !existing[0].name) {
+        await execute(
+          "UPDATE contacts SET name = ? WHERE id = ? AND (name IS NULL OR name = '')",
+          [contactName, contactId]
+        );
+      }
     } else {
       contactId = await insert(
-        'INSERT INTO contacts (workspace_id, phone, source, opted_in) VALUES (?, ?, ?, 1)',
-        [payload.workspaceId, normalizedPhone, 'api_campaign']
+        'INSERT INTO contacts (workspace_id, phone, name, source, opted_in) VALUES (?, ?, ?, ?, 1)',
+        [payload.workspaceId, normalizedPhone, contactName, 'api_campaign']
       );
     }
 
