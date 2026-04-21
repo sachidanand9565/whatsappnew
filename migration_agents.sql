@@ -13,6 +13,13 @@ ALTER TABLE messages
 UPDATE messages SET created_at = sent_at WHERE created_at IS NULL AND sent_at IS NOT NULL;
 UPDATE messages SET created_at = NOW() WHERE created_at IS NULL;
 
+-- 0c. Add api_key to workspaces for external chatbot authentication
+ALTER TABLE workspaces
+  ADD COLUMN IF NOT EXISTS api_key VARCHAR(64) DEFAULT NULL;
+
+-- Generate a key for any workspace that doesn't have one yet
+UPDATE workspaces SET api_key = CONCAT('ws_', REPLACE(UUID(), '-', '')) WHERE api_key IS NULL;
+
 -- 1. Add 'manager' to role ENUMs
 ALTER TABLE users
   MODIFY COLUMN role ENUM('admin','manager','agent') DEFAULT 'agent';

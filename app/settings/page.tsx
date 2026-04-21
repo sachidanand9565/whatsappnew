@@ -4,7 +4,7 @@ import { apiFetch } from '@/hooks/useApi';
 import {
   Save, Eye, EyeOff, Copy, CheckCircle, AlertTriangle,
   Webhook, RefreshCw, Plus, Trash2, ToggleLeft, ToggleRight,
-  Facebook, ChevronRight, X, Phone, Loader2,
+  Facebook, ChevronRight, X, Phone, Loader2, Key, RotateCcw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -199,6 +199,11 @@ export default function SettingsPage() {
   const [adding, setAdding]             = useState(false);
   const [testingId, setTestingId]       = useState<number | null>(null);
 
+  // External chatbot API key
+  const [apiKey, setApiKey]           = useState('');
+  const [showApiKey, setShowApiKey]   = useState(false);
+  const [regenLoading, setRegenLoading] = useState(false);
+
   const APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
 
   // Load Facebook JS SDK
@@ -230,6 +235,7 @@ export default function SettingsPage() {
       }
     });
     loadHooks();
+    apiFetch('/api/workspace/api-key').then((r) => setApiKey(r.data?.api_key || ''));
   }, []);
 
   function loadHooks() {
@@ -377,6 +383,17 @@ export default function SettingsPage() {
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text);
     toast.success('Copied!');
+  }
+
+  async function regenApiKey() {
+    if (!confirm('Regenerate API key? The old key will stop working immediately.')) return;
+    setRegenLoading(true);
+    try {
+      const r = await apiFetch('/api/workspace/api-key', { method: 'POST' });
+      setApiKey(r.data?.api_key || '');
+      toast.success('New API key generated!');
+    } catch { toast.error('Failed to regenerate'); }
+    finally { setRegenLoading(false); }
   }
 
   const webhookUrl = typeof window !== 'undefined'
@@ -625,7 +642,69 @@ export default function SettingsPage() {
             </button>
           </form>
 
-         
+          {/* External Chatbot API Key */}
+          <div className="card space-y-4">
+            <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
+              <Key size={18} className="text-purple-500" />
+              <div>
+                <h2 className="font-semibold text-gray-900">External Chatbot API</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Use this key to send messages from n8n, Make, or any custom bot</p>
+              </div>
+            </div>
+
+            {apiKey ? (
+              <>
+                <div>
+                  <label className="form-label">API Key</label>
+                  <div className="flex gap-2 mt-1">
+                    <input
+                      type={showApiKey ? 'text' : 'password'}
+                      value={apiKey}
+                      readOnly
+                      className="input font-mono text-xs flex-1 bg-gray-50"
+                    />
+                    <button onClick={() => setShowApiKey((s) => !s)}
+                      className="btn-secondary px-3 flex-shrink-0">
+                      {showApiKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                    <button onClick={() => copyToClipboard(apiKey)}
+                      className="btn-secondary px-3 flex-shrink-0">
+                      <Copy size={15} />
+                    </button>
+                    <button onClick={regenApiKey} disabled={regenLoading}
+                      className="btn-secondary px-3 flex-shrink-0 text-red-500 hover:bg-red-50" title="Regenerate">
+                      <RotateCcw size={15} className={regenLoading ? 'animate-spin' : ''} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-600 space-y-2">
+                  <p className="font-semibold text-gray-700">How to use (n8n / Make / custom):</p>
+                  <pre className="bg-gray-900 text-green-400 rounded p-2 overflow-x-auto leading-relaxed whitespace-pre-wrap">{`POST ${typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'}/api/external/send
+Headers:
+  X-API-Key: ${showApiKey ? apiKey : '•'.repeat(20)}
+  Content-Type: application/json
+
+Body:
+{
+  "phone": "919876543210",
+  "message": "Hello from chatbot!"
+}
+
+// OR use contact_id:
+{
+  "contact_id": 42,
+  "message": "Hello from chatbot!"
+}`}</pre>
+                  <p className="text-gray-500">Response: <code className="bg-gray-200 px-1 rounded">{"{ success: true, message_id, wamid }"}</code></p>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-2">
+                Run the migration SQL to generate your API key, then refresh.
+              </p>
+            )}
+          </div>
 
         </div>
         

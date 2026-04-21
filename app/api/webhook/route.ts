@@ -312,6 +312,8 @@ async function processChatbot(
            VALUES (?, ?, ?, 'outbound', 'text', ?, 'sent', ?, ?)`,
           [workspaceId, contactId, wamid, rule.response_text, t, t]
         );
+        // Notify inbox clients so chatbot reply shows live
+        emitSSE({ type: 'new_message', workspaceId, contactId });
       }
       break;
     }
