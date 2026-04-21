@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
                )
            )
          )
-       ORDER BY m.created_at DESC, m.id DESC
+       ORDER BY COALESCE(m.created_at, m.sent_at) DESC, m.id DESC
        LIMIT ?`,
       [
         payload.workspaceId,

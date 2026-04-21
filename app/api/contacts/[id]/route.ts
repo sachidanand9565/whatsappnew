@@ -65,8 +65,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
       }
       if (systemText) {
         await insert(
-          `INSERT INTO messages (workspace_id, contact_id, direction, type, content, status, sent_at)
-           VALUES (?, ?, 'outbound', 'system', ?, 'delivered', NOW())`,
+          `INSERT INTO messages (workspace_id, contact_id, direction, type, content, status, sent_at, created_at)
+           VALUES (?, ?, 'outbound', 'system', ?, 'delivered', NOW(), NOW())`,
           [payload.workspaceId, params.id, systemText]
         );
       }

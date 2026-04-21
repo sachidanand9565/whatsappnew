@@ -9,6 +9,10 @@ USE whatsapp_saas;
 ALTER TABLE messages
   MODIFY COLUMN type ENUM('text','image','document','audio','video','template','interactive','reaction','location','contacts','sticker','unknown','button','system') DEFAULT 'text';
 
+-- 0b. Fix any existing system messages where created_at is NULL (caused ordering bug)
+UPDATE messages SET created_at = sent_at WHERE created_at IS NULL AND sent_at IS NOT NULL;
+UPDATE messages SET created_at = NOW() WHERE created_at IS NULL;
+
 -- 1. Add 'manager' to role ENUMs
 ALTER TABLE users
   MODIFY COLUMN role ENUM('admin','manager','agent') DEFAULT 'agent';
