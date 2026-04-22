@@ -533,19 +533,20 @@ export default function InboxPage() {
         {/* Tabs */}
         <div className="flex border-b border-gray-100">
           {(['all', 'requested', 'intervened'] as const).map((t) => {
-            const requestedCount  = contacts.filter((c) => c.chat_status === 'open' && Number(c.inbound_count) > 0).length;
-            const intervenedCount = contacts.filter((c) => c.chat_status === 'intervened').length;
+            // Only show badge when NEW messages arrive via webhook (SSE-driven unreadCounts)
+            const requestedUnread  = contacts.filter((c) => c.chat_status === 'open' && (unreadCounts[c.id] || 0) > 0).length;
+            const intervenedUnread = contacts.filter((c) => c.chat_status === 'intervened' && (unreadCounts[c.id] || 0) > 0).length;
             const label =
               t === 'all' ? `All (${contacts.length})` :
               t === 'requested' ? (
                 <span className="flex items-center gap-1">
                   Requested
-                  {requestedCount > 0 && <span className="bg-whatsapp-green text-white text-xs rounded-full px-1.5 py-0.5 leading-none">{requestedCount}</span>}
+                  {requestedUnread > 0 && <span className="bg-whatsapp-green text-white text-xs rounded-full px-1.5 py-0.5 leading-none">{requestedUnread}</span>}
                 </span>
               ) : (
                 <span className="flex items-center gap-1">
                   Intervened
-                  {intervenedCount > 0 && <span className="bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5 leading-none">{intervenedCount}</span>}
+                  {intervenedUnread > 0 && <span className="bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5 leading-none">{intervenedUnread}</span>}
                 </span>
               );
             return (
