@@ -6,7 +6,7 @@
 import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { query, execute, insert } from '@/lib/db';
-import { apiSuccess, apiError } from '@/lib/utils';
+import { apiSuccess, apiError, utcNow } from '@/lib/utils';
 import { RowDataPacket } from 'mysql2';
 
 type Params = { params: { id: string } };
@@ -64,10 +64,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
         systemText = `Reopened by ${actorName}`;
       }
       if (systemText) {
+        const t = utcNow();
         await insert(
           `INSERT INTO messages (workspace_id, contact_id, direction, type, content, status, sent_at, created_at)
-           VALUES (?, ?, 'outbound', 'system', ?, 'delivered', NOW(), NOW())`,
-          [payload.workspaceId, params.id, systemText]
+           VALUES (?, ?, 'outbound', 'system', ?, 'delivered', ?, ?)`,
+          [payload.workspaceId, params.id, systemText, t, t]
         );
       }
 

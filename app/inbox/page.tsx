@@ -15,10 +15,12 @@ interface TemplateContent {
   footer: string;
   buttons: { type: string; text: string }[];
 }
-// MySQL returns timestamps without timezone — append Z so JS treats them as UTC → local conversion
+// MySQL timestamps are stored in UTC via utcNow(). Append 'Z' so JS Date
+// treats them as UTC and toLocaleTimeString/toLocaleDateString convert to IST correctly.
 function toLocalDate(ts: string): Date {
   if (!ts) return new Date();
-  return new Date(ts.includes('Z') || ts.includes('+') ? ts : ts.replace(' ', 'T') + 'Z');
+  if (ts.includes('Z') || ts.includes('+')) return new Date(ts);
+  return new Date(ts.replace(' ', 'T') + 'Z');
 }
 
 function parseTemplateContent(content: string): TemplateContent | null {
@@ -290,7 +292,7 @@ export default function InboxPage() {
   const [search, setSearch]         = useState('');
   const [sending, setSending]       = useState(false);
   const [actioning, setActioning]   = useState(false);
-  const [tab, setTab]               = useState<'all' | 'replied' | 'unread'>('replied');
+  const [tab, setTab]               = useState<'all' | 'requested' | 'intervened'>('requested');
   const [showTemplates, setShowTemplates] = useState(false);
   const [templates, setTemplates]   = useState<{ id: number; name: string; language: string; body_text: string; status: string }[]>([]);
   const [sendingTpl, setSendingTpl] = useState<number | null>(null);
@@ -306,7 +308,7 @@ export default function InboxPage() {
   };
 
   const loadContacts = useCallback(() => {
-    apiFetch('/api/contacts?limit=200&chatStatus=active').then((r) => setContacts(r.data?.data || []));
+    apiFetch('/api/contacts?limit=200&chatStatus=inbox').then((r) => setContacts(r.data?.data || []));
   }, []);
 
   useEffect(() => {
@@ -442,6 +444,16 @@ export default function InboxPage() {
     if (!selected || actioning) return;
     setActioning(true);
     const userName = localStorage.getItem('userName') || 'Agent';
+    // Optimistically append "Intervened by" at the END so it appears below the last message
+    const optimistic = {
+      id: Date.now(), workspace_id: selected.id, contact_id: selected.id,
+      wamid: '', direction: 'outbound' as const, type: 'system',
+      content: `Intervened by ${userName}`, template_id: 0, campaign_id: 0,
+      status: 'delivered' as const, error_message: '',
+      sent_at: new Date().toISOString(), delivered_at: '', read_at: '',
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimistic]);
     try {
       await apiFetch(`/api/contacts/${selected.id}`, {
         method: 'PUT',
@@ -450,9 +462,10 @@ export default function InboxPage() {
       const updated = { ...selected, chat_status: 'intervened' as const };
       setSelected(updated);
       setContacts((prev) => prev.map((c) => c.id === selected.id ? updated : c));
-      // Reload messages so "Intervened by" badge appears at correct position
-      loadMessages(selected.id);
-    } catch { toast.error('Failed to intervene'); }
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+      toast.error('Failed to intervene');
+    }
     finally { setActioning(false); }
   }
 
@@ -477,12 +490,12 @@ export default function InboxPage() {
         body: JSON.stringify({ chat_status: 'resolved' }),
       });
 
-      // Small delay so user sees "Closed by" at bottom, then moves to history
-      await new Promise((r) => setTimeout(r, 800));
-      setContacts((prev) => prev.filter((c) => c.id !== selected.id));
+      // Mark resolved locally — contact stays in "All" for 24h, then auto-moves to History
+      const resolved = { ...selected, chat_status: 'resolved' as const };
+      setContacts((prev) => prev.map((c) => c.id === selected.id ? resolved : c));
       setSelected(null);
       setMessages([]);
-      toast.success('Chat resolved and moved to History');
+      toast.success('Chat resolved — visible in All for 24 hours, then moves to History');
     } catch { toast.error('Failed to resolve'); }
     finally { setActioning(false); }
   }
@@ -519,20 +532,20 @@ export default function InboxPage() {
 
         {/* Tabs */}
         <div className="flex border-b border-gray-100">
-          {(['all', 'replied', 'unread'] as const).map((t) => {
-            const unreadCount  = contacts.filter((c) => (unreadCounts[c.id] || 0) > 0).length;
-            const repliedCount = contacts.filter((c) => Number(c.inbound_count) > 0).length;
+          {(['all', 'requested', 'intervened'] as const).map((t) => {
+            const requestedCount  = contacts.filter((c) => c.chat_status === 'open' && Number(c.inbound_count) > 0).length;
+            const intervenedCount = contacts.filter((c) => c.chat_status === 'intervened').length;
             const label =
-              t === 'all'     ? `All (${contacts.length})` :
-              t === 'replied' ? (
+              t === 'all' ? `All (${contacts.length})` :
+              t === 'requested' ? (
                 <span className="flex items-center gap-1">
-                  Replied
-                  {repliedCount > 0 && <span className="bg-whatsapp-green text-white text-xs rounded-full px-1.5 py-0.5 leading-none">{repliedCount}</span>}
+                  Requested
+                  {requestedCount > 0 && <span className="bg-whatsapp-green text-white text-xs rounded-full px-1.5 py-0.5 leading-none">{requestedCount}</span>}
                 </span>
               ) : (
                 <span className="flex items-center gap-1">
-                  Unread
-                  {unreadCount > 0 && <span className="bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 leading-none">{unreadCount}</span>}
+                  Intervened
+                  {intervenedCount > 0 && <span className="bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5 leading-none">{intervenedCount}</span>}
                 </span>
               );
             return (
@@ -553,19 +566,21 @@ export default function InboxPage() {
           {filtered
             .filter((c) => {
               if (tab === 'all') return true;
-              if (tab === 'replied') return Number(c.inbound_count) > 0;
-              // unread tab
-              return (unreadCounts[c.id] || 0) > 0;
+              if (tab === 'requested') return c.chat_status === 'open' && Number(c.inbound_count) > 0;
+              // intervened tab
+              return c.chat_status === 'intervened';
             })
             .map((c) => {
             const unread = unreadCounts[c.id] || 0;
+            const isResolved = c.chat_status === 'resolved';
             const initial = (c.name || c.phone).charAt(0).toUpperCase();
             const avatarColors = ['bg-orange-400','bg-purple-500','bg-blue-500','bg-green-500','bg-red-400'];
             const color = avatarColors[initial.charCodeAt(0) % avatarColors.length];
             return (
               <button key={c.id} onClick={() => selectContact(c)}
                 className={`w-full text-left px-3 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors flex items-center gap-3
-                  ${selected?.id === c.id ? 'bg-green-50 border-l-2 border-l-whatsapp-green' : ''}`}>
+                  ${selected?.id === c.id ? 'bg-green-50 border-l-2 border-l-whatsapp-green' : ''}
+                  ${isResolved ? 'opacity-60' : ''}`}>
                 <div className={`w-10 h-10 rounded-full ${color} text-white flex items-center justify-center font-bold text-sm flex-shrink-0`}>
                   {initial}
                 </div>
@@ -582,9 +597,9 @@ export default function InboxPage() {
                   </div>
                   <div className="flex items-center justify-between mt-0.5">
                     <p className={`text-xs truncate ${unread > 0 ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
-                      +{c.phone}
+                      {isResolved ? <span className="text-green-600 font-medium">Resolved</span> : `+${c.phone}`}
                     </p>
-                    {unread > 0 && (
+                    {unread > 0 && !isResolved && (
                       <span className="flex-shrink-0 bg-whatsapp-green text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
                         {unread > 99 ? '99+' : unread}
                       </span>
@@ -630,16 +645,20 @@ export default function InboxPage() {
               const msgDate  = toLocalDate(m.created_at);
               const timeStr  = msgDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
 
-              // Date separator logic
-              const prevDate   = idx > 0 ? toLocalDate(messages[idx - 1].created_at) : null;
-              const todayIST     = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-              const yesterdayIST = new Date(todayIST); yesterdayIST.setDate(todayIST.getDate() - 1);
-              const msgDateIST   = new Date(msgDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-              const prevDateIST  = prevDate ? new Date(prevDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })) : null;
-              const isNewDay   = !prevDateIST || msgDateIST.toDateString() !== prevDateIST.toDateString();
-              const dateLabel  = msgDateIST.toDateString() === todayIST.toDateString()     ? 'Today'
-                               : msgDateIST.toDateString() === yesterdayIST.toDateString() ? 'Yesterday'
-                               : msgDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+              // Date separator logic — use en-CA locale for reliable YYYY-MM-DD strings
+              const prevDate        = idx > 0 ? toLocalDate(messages[idx - 1].created_at) : null;
+              const todayStr        = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+              const yesterdayStr    = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+              const msgDateStr      = msgDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+              const prevDateStr     = prevDate ? prevDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : null;
+              const isNewDay        = !prevDateStr || msgDateStr !== prevDateStr;
+              const dateLabel       = msgDateStr === todayStr     ? 'Today'
+                                    : msgDateStr === yesterdayStr ? 'Yesterday'
+                                    : msgDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+
+              // Session divider — shown when a new regular message follows a "Closed by" event
+              const prevMsg       = idx > 0 ? messages[idx - 1] : null;
+              const isNewSession  = !!(prevMsg?.content?.startsWith('Closed by '));
 
               // System message — centered badge
               const isSystemMsg = m.type === 'system' ||
@@ -665,6 +684,13 @@ export default function InboxPage() {
 
               return (
                 <div key={m.id}>
+                  {isNewSession && (
+                    <div className="flex items-center gap-2 my-4">
+                      <div className="flex-1 h-px bg-gray-300" />
+                      <span className="text-xs text-gray-400 font-medium px-2 whitespace-nowrap">New Conversation</span>
+                      <div className="flex-1 h-px bg-gray-300" />
+                    </div>
+                  )}
                   {isNewDay && (
                     <div className="flex items-center justify-center my-3">
                       <span className="bg-white/80 text-gray-500 text-xs font-medium px-3 py-1 rounded-full shadow-sm">
@@ -797,6 +823,15 @@ export default function InboxPage() {
                 </div>
               </div>
             )
+          ) : selected.chat_status === 'resolved' ? (
+            <div className="p-4 border-t border-gray-200 bg-gray-50 flex flex-col items-center gap-2">
+              <p className="text-xs text-gray-400">Chat resolved — moves to History in 24 hrs</p>
+              <button onClick={intervene} disabled={actioning}
+                className="flex items-center gap-2 px-6 py-2.5 bg-whatsapp-green hover:bg-green-600 text-white font-semibold rounded-full text-sm transition-colors disabled:opacity-50 shadow-sm">
+                {actioning ? <Loader2 size={15} className="animate-spin" /> : <UserCheck size={15} />}
+                Intervene Again
+              </button>
+            </div>
           ) : (
             <div className="p-4 border-t border-gray-200 bg-gray-50 flex items-center justify-center">
               <button onClick={intervene} disabled={actioning}

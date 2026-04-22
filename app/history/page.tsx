@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { apiFetch } from '@/hooks/useApi';
-import { Search, CheckCircle, MapPin, User, FileText, Download, Music, UserCheck, Loader2 } from 'lucide-react';
+import { Search, CheckCircle, MapPin, User, FileText, Download, Music, Send, LayoutTemplate, X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Contact, Message } from '@/types';
 
@@ -74,15 +74,18 @@ function renderMessageContent(m: Message) {
 }
 
 export default function HistoryPage() {
-  const [contacts, setContacts]   = useState<Contact[]>([]);
-  const [selected, setSelected]   = useState<Contact | null>(null);
-  const [messages, setMessages]   = useState<Message[]>([]);
-  const [search, setSearch]       = useState('');
-  const [actioning, setActioning] = useState(false);
-  const bottomRef                 = useRef<HTMLDivElement>(null);
+  const [contacts, setContacts]     = useState<Contact[]>([]);
+  const [selected, setSelected]     = useState<Contact | null>(null);
+  const [messages, setMessages]     = useState<Message[]>([]);
+  const [search, setSearch]         = useState('');
+  const [actioning, setActioning]   = useState(false);
+  const [templates, setTemplates]   = useState<{ id: number; name: string; language: string; body_text: string; status: string }[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [sendingTpl, setSendingTpl] = useState<number | null>(null);
+  const bottomRef                   = useRef<HTMLDivElement>(null);
 
   const loadContacts = useCallback(() => {
-    apiFetch('/api/contacts?limit=200&chatStatus=resolved').then((r) => setContacts(r.data?.data || []));
+    apiFetch('/api/contacts?limit=200&chatStatus=history').then((r) => setContacts(r.data?.data || []));
   }, []);
 
   useEffect(() => { loadContacts(); }, [loadContacts]);
@@ -94,24 +97,29 @@ export default function HistoryPage() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  const isSessionOpen = messages.some((m) =>
-    m.direction === 'inbound' && Date.now() - new Date(m.created_at).getTime() < 24 * 60 * 60 * 1000
-  );
+  const loadTemplates = useCallback(() => {
+    if (templates.length > 0) return;
+    apiFetch('/api/templates').then((r) => {
+      setTemplates((r.data || []).filter((t: { status: string }) => t.status === 'APPROVED'));
+    });
+  }, [templates.length]);
 
-  async function intervene() {
-    if (!selected || actioning) return;
-    setActioning(true);
+  async function sendTemplate(templateName: string, language: string, tplId: number) {
+    if (!selected) return;
+    setSendingTpl(tplId);
     try {
-      await apiFetch(`/api/contacts/${selected.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ chat_status: 'intervened' }),
+      await apiFetch('/api/send-message', {
+        method: 'POST',
+        body: JSON.stringify({ contactId: selected.id, type: 'template', templateName, language }),
       });
-      setContacts((prev) => prev.filter((c) => c.id !== selected.id));
-      setSelected(null);
-      setMessages([]);
-      toast.success('Chat moved to Inbox — you can now reply');
-    } catch { toast.error('Failed to intervene'); }
-    finally { setActioning(false); }
+      setShowTemplates(false);
+      apiFetch(`/api/messages?contactId=${selected.id}&limit=80`).then((r) => setMessages(r.data || []));
+      toast.success('Template sent!');
+    } catch (err) {
+      toast.error('Failed: ' + (err instanceof Error ? err.message : 'error'));
+    } finally {
+      setSendingTpl(null);
+    }
   }
 
   const filtered = contacts.filter((c) => (c.name || c.phone).toLowerCase().includes(search.toLowerCase()));
@@ -221,19 +229,40 @@ export default function HistoryPage() {
             <div ref={bottomRef} />
           </div>
 
+          {/* Template picker panel */}
+          {showTemplates && (
+            <div className="border-t border-gray-200 bg-white">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+                <p className="text-sm font-semibold text-gray-700">Select a Template</p>
+                <button onClick={() => setShowTemplates(false)}><X size={16} className="text-gray-400 hover:text-gray-600" /></button>
+              </div>
+              <div className="max-h-52 overflow-y-auto divide-y divide-gray-50">
+                {templates.length === 0
+                  ? <p className="text-center text-xs text-gray-400 py-6">No approved templates</p>
+                  : templates.map((t) => (
+                    <button key={t.id} onClick={() => sendTemplate(t.name, t.language, t.id)}
+                      disabled={sendingTpl === t.id}
+                      className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors disabled:opacity-50">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-gray-800">{t.name}</p>
+                        {sendingTpl === t.id
+                          ? <Loader2 size={14} className="animate-spin text-gray-400" />
+                          : <Send size={13} className="text-gray-300" />}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5 truncate">{t.body_text}</p>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
           <div className="p-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
-            {isSessionOpen ? (
-              <>
-                <p className="text-xs text-green-600 font-medium">24h window is open</p>
-                <button onClick={intervene} disabled={actioning}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-whatsapp-green hover:bg-green-600 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
-                  {actioning ? <Loader2 size={13} className="animate-spin" /> : <UserCheck size={13} />}
-                  Intervene
-                </button>
-              </>
-            ) : (
-              <p className="text-xs text-gray-400 w-full text-center">This conversation is resolved and read-only</p>
-            )}
+            <p className="text-xs text-gray-400">24h session expired — send a template to re-engage</p>
+            <button
+              onClick={() => { loadTemplates(); setShowTemplates((v) => !v); }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-whatsapp-green hover:bg-green-600 text-white text-xs font-semibold rounded-lg transition-colors flex-shrink-0">
+              <LayoutTemplate size={13} />
+              Send Template
+            </button>
           </div>
         </div>
       ) : (

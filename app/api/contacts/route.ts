@@ -67,6 +67,31 @@ export async function GET(req: NextRequest) {
     } else if (chatStatus === 'active') {
       sql      += " AND (c.chat_status IS NULL OR c.chat_status != 'resolved')";
       countSql += " AND (chat_status IS NULL OR chat_status != 'resolved')";
+    } else if (chatStatus === 'inbox') {
+      // Any contact with message activity in last 24h — open, intervened, or recently resolved.
+      // All move to History automatically once 24h passes since last message.
+      sql += ` AND EXISTS (
+          SELECT 1 FROM messages m
+          WHERE m.contact_id = c.id
+          AND m.created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        )`;
+      countSql += ` AND EXISTS (
+          SELECT 1 FROM messages m
+          WHERE m.contact_id = id
+          AND m.created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        )`;
+    } else if (chatStatus === 'history') {
+      // Contacts with no message activity in last 24h (exact inverse of inbox)
+      sql += ` AND NOT EXISTS (
+          SELECT 1 FROM messages m
+          WHERE m.contact_id = c.id
+          AND m.created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        )`;
+      countSql += ` AND NOT EXISTS (
+          SELECT 1 FROM messages m
+          WHERE m.contact_id = id
+          AND m.created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        )`;
     }
 
     sql += ' ORDER BY last_message_at DESC, c.created_at DESC LIMIT ? OFFSET ?';
