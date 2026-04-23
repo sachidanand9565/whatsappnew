@@ -316,7 +316,13 @@ export default function InboxPage() {
   };
 
   const loadContacts = useCallback(() => {
-    apiFetch('/api/contacts?limit=200&chatStatus=inbox').then((r) => setContacts(r.data?.data || []));
+    apiFetch('/api/contacts?limit=200&chatStatus=inbox').then((r) => {
+      const list: Contact[] = r.data?.data || [];
+      // Keep unread_count = 0 for the currently open contact
+      setContacts(list.map(c =>
+        selectedRef.current?.id === c.id ? { ...c, unread_count: 0 } : c
+      ));
+    });
   }, []);
 
   useEffect(() => {
@@ -380,11 +386,8 @@ export default function InboxPage() {
 
   function selectContact(c: Contact) {
     setSelected(c);
-    setUnreadCounts(prev => {
-      const next = { ...prev, [c.id]: 0 };
-      saveUnread(next);
-      return next;
-    });
+    // Zero out badge immediately in local state — no DB call needed
+    setContacts(prev => prev.map(x => x.id === c.id ? { ...x, unread_count: 0 } : x));
   }
 
   useEffect(() => {
@@ -621,7 +624,7 @@ export default function InboxPage() {
               return c.chat_status === 'intervened';
             })
             .map((c) => {
-            const unread = unreadCounts[c.id] || 0;
+            const unread = Number(c.unread_count) || 0;
             const isResolved = c.chat_status === 'resolved';
             const initial = (c.name || c.phone).charAt(0).toUpperCase();
             const avatarColors = ['bg-orange-400','bg-purple-500','bg-blue-500','bg-green-500','bg-red-400'];

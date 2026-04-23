@@ -30,7 +30,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
   try {
     const payload = requireAuth(req);
     const body = await req.json();
-    const { name, email, city, source, status, tags, notes, opted_in, chat_status, transfer_to_id } = body;
+    const { name, email, city, source, status, tags, notes, opted_in, chat_status, transfer_to_id, reset_unread } = body;
+
+    // Reset unread count when agent opens the chat
+    if (reset_unread) {
+      await execute(
+        'UPDATE contacts SET unread_count = 0 WHERE id = ? AND workspace_id = ?',
+        [params.id, payload.workspaceId]
+      );
+      return apiSuccess({ updated: true });
+    }
 
     // Chat transfer — reassign contact to a specific agent
     if (transfer_to_id !== undefined) {
