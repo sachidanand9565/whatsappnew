@@ -348,13 +348,13 @@ export default function InboxPage() {
 
     es.onmessage = (e) => {
       try {
-        const data = JSON.parse(e.data) as { type?: string; contactId?: number };
+        const data = JSON.parse(e.data) as { type?: string; contactId?: number; direction?: string };
         if (data.type === 'new_message') {
           loadContacts();
           if (selectedRef.current?.id === data.contactId) {
             loadMessages(data.contactId!);
-          } else if (data.contactId) {
-            // Increment badge only for contacts NOT currently open
+          } else if (data.contactId && data.direction === 'inbound') {
+            // Only increment badge for inbound — chatbot/agent outbound must NOT count
             setUnreadCounts(prev => {
               const next = { ...prev, [data.contactId!]: (prev[data.contactId!] || 0) + 1 };
               saveUnread(next);
@@ -386,8 +386,11 @@ export default function InboxPage() {
 
   function selectContact(c: Contact) {
     setSelected(c);
-    // Zero out badge immediately in local state — no DB call needed
-    setContacts(prev => prev.map(x => x.id === c.id ? { ...x, unread_count: 0 } : x));
+    setUnreadCounts(prev => {
+      const next = { ...prev, [c.id]: 0 };
+      saveUnread(next);
+      return next;
+    });
   }
 
   useEffect(() => {
@@ -624,7 +627,8 @@ export default function InboxPage() {
               return c.chat_status === 'intervened';
             })
             .map((c) => {
-            const unread = Number(c.unread_count) || 0;
+            // Local state is primary (SSE-driven); DB subquery is fallback for page-refresh
+            const unread = unreadCounts[c.id] !== undefined ? unreadCounts[c.id] : (Number(c.unread_count) || 0);
             const isResolved = c.chat_status === 'resolved';
             const initial = (c.name || c.phone).charAt(0).toUpperCase();
             const avatarColors = ['bg-orange-400','bg-purple-500','bg-blue-500','bg-green-500','bg-red-400'];

@@ -9,9 +9,10 @@ const emitter = new EventEmitter();
 emitter.setMaxListeners(500);
 
 export interface SSEPayload {
-  type: 'new_message' | 'status_update';
+  type:        'new_message' | 'status_update';
   workspaceId: number;
-  contactId: number;
+  contactId:   number;
+  direction?:  'inbound' | 'outbound';
 }
 
 /** Called from the webhook handler after a message is persisted. */

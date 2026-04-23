@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Notify connected inbox clients instantly via SSE
-    emitSSE({ type: 'new_message', workspaceId, contactId });
+    emitSSE({ type: 'new_message', workspaceId, contactId, direction: 'inbound' });
 
     // ---- Forward to all active custom chatbot webhooks (non-blocking) ----
     if (activeWebhooks.length > 0) {
@@ -312,8 +312,8 @@ async function processChatbot(
            VALUES (?, ?, ?, 'outbound', 'text', ?, 'sent', ?, ?)`,
           [workspaceId, contactId, wamid, rule.response_text, t, t]
         );
-        // Notify inbox clients so chatbot reply shows live
-        emitSSE({ type: 'new_message', workspaceId, contactId });
+        // Notify inbox clients so chatbot reply shows live (outbound — don't increment badge)
+        emitSSE({ type: 'new_message', workspaceId, contactId, direction: 'outbound' });
       }
       break;
     }
