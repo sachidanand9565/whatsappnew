@@ -751,7 +751,8 @@ export default function InboxPage() {
 
               // System message — centered badge
               const isSystemMsg = m.type === 'system' ||
-                (m.content?.startsWith('Intervened by ') || m.content?.startsWith('Closed by ') || m.content?.startsWith('Reopened by '));
+                (m.content?.startsWith('Intervened by ') || m.content?.startsWith('Closed by ') ||
+                 m.content?.startsWith('Reopened by ')   || m.content?.startsWith('Transferred to '));
               if (isSystemMsg) {
                 return (
                   <div key={m.id}>
