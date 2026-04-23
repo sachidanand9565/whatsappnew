@@ -18,9 +18,10 @@ export async function GET(req: NextRequest) {
        FROM workspace_members wm
        JOIN users u ON u.id = wm.user_id
        WHERE wm.workspace_id = ?
-         AND wm.role IN ('manager','agent')
-       ORDER BY u.created_at DESC`,
-      [payload.workspaceId]
+         AND wm.role IN ('admin','manager','agent')
+         AND wm.user_id != ?
+       ORDER BY wm.role ASC, u.name ASC`,
+      [payload.workspaceId, payload.userId]
     );
 
     return apiSuccess(agents);
