@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '@/hooks/useApi';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell, Legend,
 } from 'recharts';
 
 interface Summary {
@@ -21,19 +21,34 @@ interface Summary {
 
 const COLORS = ['#25D366', '#128C7E', '#FFB300', '#EF4444'];
 
+function toLocalDate(d: Date) { return d.toISOString().slice(0, 10); }
+function todayStr()     { return toLocalDate(new Date()); }
+function daysAgoStr(n: number) { const d = new Date(); d.setDate(d.getDate() - n); return toLocalDate(d); }
+
+const PRESETS = [
+  { label: 'Today',    s: () => todayStr(),      e: () => todayStr() },
+  { label: 'Last 7d',  s: () => daysAgoStr(6),   e: () => todayStr() },
+  { label: 'Last 30d', s: () => daysAgoStr(29),  e: () => todayStr() },
+  { label: 'Last 90d', s: () => daysAgoStr(89),  e: () => todayStr() },
+];
+
 export default function AnalyticsPage() {
   const [summary, setSummary]   = useState<Summary | null>(null);
   const [daily, setDaily]       = useState<{ date: string; sent: number; received: number }[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [startDate, setStartDate] = useState(() => daysAgoStr(29));
+  const [endDate,   setEndDate]   = useState(() => todayStr());
 
   useEffect(() => {
-    apiFetch('/api/analytics').then((r) => {
+    if (!startDate || !endDate) return;
+    setLoading(true);
+    apiFetch(`/api/analytics?start_date=${startDate}&end_date=${endDate}`).then((r) => {
       if (r?.data) {
         setSummary(r.data.summary);
         setDaily(r.data.charts.daily_messages);
       }
     }).finally(() => setLoading(false));
-  }, []);
+  }, [startDate, endDate]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -50,7 +65,37 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+      {/* Header + date filter */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+      </div>
+
+      {/* Date filter bar */}
+      <div className="card flex flex-wrap items-center gap-3">
+        <div className="flex gap-2 flex-wrap">
+          {PRESETS.map((p) => {
+            const ps = p.s(), pe = p.e();
+            const active = startDate === ps && endDate === pe;
+            return (
+              <button key={p.label} onClick={() => { setStartDate(ps); setEndDate(pe); }}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+                  ${active ? 'bg-whatsapp-green text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="text-sm text-gray-500">From</span>
+          <input type="date" value={startDate} max={endDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-whatsapp-green" />
+          <span className="text-sm text-gray-500">To</span>
+          <input type="date" value={endDate} min={startDate} max={todayStr()}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-whatsapp-green" />
+        </div>
+      </div>
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -75,7 +120,9 @@ export default function AnalyticsPage() {
       <div className="grid md:grid-cols-2 gap-6">
         {/* Daily messages chart */}
         <div className="card">
-          <h2 className="font-semibold text-gray-900 mb-4">Messages — Last 7 Days</h2>
+          <h2 className="font-semibold text-gray-900 mb-4">
+            Messages — {startDate === endDate ? startDate : `${startDate} to ${endDate}`}
+          </h2>
           {daily.length === 0 ? (
             <p className="text-gray-400 text-sm text-center py-8">No data yet</p>
           ) : (

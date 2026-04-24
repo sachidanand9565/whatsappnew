@@ -15,6 +15,17 @@ export async function GET(req: NextRequest) {
     const isAgent = payload.role === 'agent';
     const uid = payload.userId;
 
+    // Date range — default last 30 days
+    const sp = new URL(req.url).searchParams;
+    const startDate = sp.get('start_date');
+    const endDate   = sp.get('end_date');
+    const dateStart = startDate ? `${startDate} 00:00:00` : null;
+    const dateEnd   = endDate   ? `${endDate} 23:59:59`   : null;
+    const dateFilter      = dateStart && dateEnd ? `AND created_at BETWEEN ? AND ?`         : `AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`;
+    const dateFilterUpd   = dateStart && dateEnd ? `AND updated_at BETWEEN ? AND ?`         : `AND updated_at  >= DATE_SUB(NOW(), INTERVAL 30 DAY)`;
+    const dateFilterNew   = dateStart && dateEnd ? `AND created_at BETWEEN ? AND ?`         : `AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`;
+    const dateParams      = dateStart && dateEnd ? [dateStart, dateEnd] : [];
+
     // Agent: scope to contacts in their assigned campaigns only
     const contactFilter = isAgent
       ? `AND contact_id IN (
@@ -43,7 +54,7 @@ export async function GET(req: NextRequest) {
       dailyMessages,
       leadConversion,
     ] = await Promise.all([
-      // Message stats
+      // Message stats for selected range
       query<RowDataPacket[]>(
         `SELECT
            COUNT(*) as total,
@@ -51,20 +62,20 @@ export async function GET(req: NextRequest) {
            SUM(status = 'delivered') as delivered,
            SUM(status = 'read') as read_count,
            SUM(status = 'failed') as failed
-         FROM messages WHERE workspace_id = ? ${contactFilter}`,
-        [wid]
+         FROM messages WHERE workspace_id = ? ${dateFilter} ${contactFilter}`,
+        [wid, ...dateParams]
       ),
-      // Contact stats
+      // Contact stats — total is all-time, new/opted filtered by range
       query<RowDataPacket[]>(
         `SELECT
            COUNT(*) as total,
-           SUM(created_at >= CURDATE()) as today,
+           SUM(${dateStart && dateEnd ? `created_at BETWEEN '${dateStart}' AND '${dateEnd}'` : `created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`}) as today,
            SUM(status = 'converted') as converted,
            SUM(opted_in = 1) as opted_in
          FROM contacts WHERE workspace_id = ? ${contactTableFilter}`,
         [wid]
       ),
-      // Campaign stats
+      // Campaign stats — all-time totals
       query<RowDataPacket[]>(
         `SELECT
            COUNT(*) as total,
@@ -74,31 +85,29 @@ export async function GET(req: NextRequest) {
          FROM campaigns WHERE workspace_id = ? ${campaignFilter}`,
         [wid]
       ),
-      // Daily messages last 7 days
+      // Daily messages for selected range
       query<RowDataPacket[]>(
         `SELECT
            DATE(created_at) as date,
            SUM(direction = 'outbound') as sent,
            SUM(direction = 'inbound') as received
          FROM messages
-         WHERE workspace_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-           ${contactFilter}
+         WHERE workspace_id = ? ${dateFilter} ${contactFilter}
          GROUP BY DATE(created_at)
          ORDER BY date ASC`,
-        [wid]
+        [wid, ...dateParams]
       ),
-      // Lead conversion last 30 days
+      // Lead conversions for selected range
       query<RowDataPacket[]>(
         `SELECT
            DATE(updated_at) as date,
            COUNT(*) as conversions
          FROM contacts
          WHERE workspace_id = ? AND status = 'converted'
-           AND updated_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-           ${contactTableFilter}
+           ${dateFilterUpd} ${contactTableFilter}
          GROUP BY DATE(updated_at)
          ORDER BY date ASC`,
-        [wid]
+        [wid, ...dateParams]
       ),
     ]);
 
