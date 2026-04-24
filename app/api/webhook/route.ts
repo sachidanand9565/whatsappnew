@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
         [workspaceId, contactId, msg.wamid, msg.type, content, msgSentAt, msgNow]
       );
     }
-
+    
     // Notify connected inbox clients instantly via SSE
     emitSSE({ type: 'new_message', workspaceId, contactId, direction: 'inbound' });
 

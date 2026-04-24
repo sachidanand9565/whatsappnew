@@ -307,6 +307,15 @@ export default function InboxPage() {
   const bottomRef                           = useRef<HTMLDivElement>(null);
   const chatRef                             = useRef<HTMLDivElement>(null);
 
+  // Intervened filter state
+  const [intervenedFilter, setIntervenedFilter]         = useState<'me' | 'any' | 'other' | number>('me');
+  const [showIntervenedFilter, setShowIntervenedFilter] = useState(false);
+  const [filterAgents, setFilterAgents]                 = useState<{ id: number; name: string; workspace_role: string }[]>([]);
+  const [loadingFilterAgents, setLoadingFilterAgents]   = useState(false);
+  const intervenedFilterRef                             = useRef<HTMLDivElement>(null);
+  const currentUserName = typeof window !== 'undefined' ? (localStorage.getItem('userName') || '') : '';
+  const currentUserRole = typeof window !== 'undefined' ? (localStorage.getItem('userRole') || '') : '';
+
   // SSE-driven unread counts — persisted in localStorage, cleared on select
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>(() => {
     try { return JSON.parse(localStorage.getItem('unreadCounts') || '{}'); } catch { return {}; }
@@ -540,6 +549,30 @@ export default function InboxPage() {
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [showTransfer]);
 
+  // Close intervened filter dropdown when clicking outside
+  useEffect(() => {
+    if (!showIntervenedFilter) return;
+    function handleOutside(e: MouseEvent) {
+      if (intervenedFilterRef.current && !intervenedFilterRef.current.contains(e.target as Node)) {
+        setShowIntervenedFilter(false);
+      }
+    }
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [showIntervenedFilter]);
+
+  async function openIntervenedFilter() {
+    if (filterAgents.length === 0 && !showIntervenedFilter) {
+      setLoadingFilterAgents(true);
+      try {
+        const r = await apiFetch('/api/agents');
+        setFilterAgents(r.data || []);
+      } catch { /* ignore */ }
+      finally { setLoadingFilterAgents(false); }
+    }
+    setShowIntervenedFilter((v) => !v);
+  }
+
   async function openTransfer() {
     if (transferAgents.length === 0 && !showTransfer) {
       setLoadingAgents(true);
@@ -628,6 +661,81 @@ export default function InboxPage() {
           })}
         </div>
 
+        {/* Intervened filter dropdown — visible for admin/manager on intervened tab */}
+        {tab === 'intervened' && (currentUserRole === 'admin' || currentUserRole === 'manager') && (
+          <div className="border-b border-gray-100 relative" ref={intervenedFilterRef}>
+            {(() => {
+              // For agent-specific filter, look up name by ID
+              const selectedAgent = typeof intervenedFilter === 'number'
+                ? filterAgents.find((a) => a.id === intervenedFilter)
+                : null;
+              const filterLabel =
+                intervenedFilter === 'me'    ? 'Intervened By Me' :
+                intervenedFilter === 'any'   ? 'Intervened By Any' :
+                intervenedFilter === 'other' ? 'Intervened By Other' :
+                selectedAgent ? `Intervened By ${selectedAgent.name}` : 'Intervened By Agent';
+
+              // Count using same logic as the list filter below
+              const filterCount = filtered.filter((c) => {
+                if (c.chat_status !== 'intervened') return false;
+                if (intervenedFilter === 'any') return true;
+                if (intervenedFilter === 'me') return !c.assigned_agent_id && c.intervened_by === currentUserName;
+                if (intervenedFilter === 'other') return c.assigned_agent_id != null || c.intervened_by !== currentUserName;
+                // agent ID filter: transferred to this agent OR they directly intervened
+                return c.assigned_agent_id === intervenedFilter ||
+                  (!c.assigned_agent_id && c.intervened_by === selectedAgent?.name);
+              }).length;
+
+              return (
+                <button
+                  onClick={openIntervenedFilter}
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-semibold text-orange-700 hover:bg-orange-50 transition-colors">
+                  <span className="truncate">
+                    {filterLabel}{' '}
+                    <span className="text-orange-500 font-bold">({filterCount})</span>
+                  </span>
+                  {showIntervenedFilter ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+              );
+            })()}
+            {showIntervenedFilter && (
+              <div className="absolute left-0 right-0 top-full bg-white border border-gray-200 shadow-lg z-30 rounded-b-lg overflow-hidden">
+                <div className="max-h-64 overflow-y-auto">
+                  {([
+                    { key: 'me'    as const, label: 'Intervened By Me' },
+                    { key: 'any'   as const, label: 'Intervened By Any' },
+                    { key: 'other' as const, label: 'Intervened By Other' },
+                  ]).map((opt) => (
+                    <button key={opt.key}
+                      onClick={() => { setIntervenedFilter(opt.key); setShowIntervenedFilter(false); }}
+                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${intervenedFilter === opt.key ? 'text-orange-600 font-semibold bg-orange-50' : 'text-gray-700'}`}>
+                      {opt.label}
+                    </button>
+                  ))}
+                  <div className="border-t border-gray-100 mt-1" />
+                  {loadingFilterAgents ? (
+                    <div className="flex items-center justify-center py-3">
+                      <Loader2 size={14} className="animate-spin text-gray-400" />
+                    </div>
+                  ) : filterAgents.map((a) => (
+                    <button key={a.id}
+                      onClick={() => { setIntervenedFilter(a.id); setShowIntervenedFilter(false); }}
+                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${intervenedFilter === a.id ? 'text-orange-600 font-semibold bg-orange-50' : 'text-gray-700'}`}>
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${a.workspace_role === 'manager' ? 'bg-purple-500' : 'bg-blue-500'}`}>
+                        {a.name.charAt(0).toUpperCase()}
+                      </span>
+                      <span className="truncate">Intervened By {a.name}</span>
+                      {a.workspace_role !== 'agent' && (
+                        <span className="ml-auto text-xs text-gray-400 capitalize">{a.workspace_role}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Contact items */}
         <div className="flex-1 overflow-y-auto">
           {filtered.length === 0 && (
@@ -637,16 +745,36 @@ export default function InboxPage() {
             .filter((c) => {
               if (tab === 'all') return true;
               if (tab === 'requested') return c.chat_status === 'open' && Number(c.inbound_count) > 0;
-              // intervened tab
-              return c.chat_status === 'intervened';
+              // intervened tab with sub-filter
+              if (c.chat_status !== 'intervened') return false;
+              if (intervenedFilter === 'any') return true;
+              // "By Me": I directly intervened (no transfer), or no agent assigned and I intervened
+              if (intervenedFilter === 'me') return !c.assigned_agent_id && c.intervened_by === currentUserName;
+              // "By Other": anything that isn't "By Me"
+              if (intervenedFilter === 'other') return c.assigned_agent_id != null || c.intervened_by !== currentUserName;
+              // Agent ID filter: chat transferred to this agent OR agent directly intervened (no transfer)
+              const agentName = filterAgents.find((a) => a.id === intervenedFilter)?.name;
+              return c.assigned_agent_id === intervenedFilter ||
+                (!c.assigned_agent_id && c.intervened_by === agentName);
             })
             .map((c) => {
             // Local state is primary (SSE-driven); DB subquery is fallback for page-refresh
             const unread = unreadCounts[c.id] !== undefined ? unreadCounts[c.id] : (Number(c.unread_count) || 0);
             const isResolved = c.chat_status === 'resolved';
+            const isIntervened = c.chat_status === 'intervened';
             const initial = (c.name || c.phone).charAt(0).toUpperCase();
             const avatarColors = ['bg-orange-400','bg-purple-500','bg-blue-500','bg-green-500','bg-red-400'];
             const color = avatarColors[initial.charCodeAt(0) % avatarColors.length];
+            // assigned_agent_name comes from the API (subquery join on users)
+            const transferredToAgent = c.assigned_agent_name ||
+              filterAgents.find((a) => a.id === c.assigned_agent_id)?.name;
+            const intervenedLabel = isIntervened && c.intervened_by
+              ? (c.assigned_agent_id
+                  ? `User Transferred to ${transferredToAgent || 'agent'} by ${c.intervened_by}`
+                  : c.intervened_by === currentUserName
+                    ? 'User Intervened by you'
+                    : `User Intervened by ${c.intervened_by}`)
+              : null;
             return (
               <button key={c.id} onClick={() => selectContact(c)}
                 className={`w-full text-left px-3 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors flex items-center gap-3
@@ -668,7 +796,11 @@ export default function InboxPage() {
                   </div>
                   <div className="flex items-center justify-between mt-0.5">
                     <p className={`text-xs truncate ${unread > 0 ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
-                      {isResolved ? <span className="text-green-600 font-medium">Resolved</span> : `+${c.phone}`}
+                      {isResolved
+                        ? <span className="text-green-600 font-medium">Resolved</span>
+                        : intervenedLabel
+                          ? <span className="text-orange-600">{intervenedLabel}</span>
+                          : `+${c.phone}`}
                     </p>
                     {unread > 0 && !isResolved && (
                       <span className="flex-shrink-0 bg-whatsapp-green text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">

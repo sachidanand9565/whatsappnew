@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
 
     let sql    = `
       SELECT c.*,
+        (SELECT u.name FROM users u WHERE u.id = c.assigned_agent_id LIMIT 1) AS assigned_agent_name,
         (SELECT COUNT(*) FROM messages m
          WHERE m.contact_id = c.id AND m.direction = 'inbound'
            AND m.id > COALESCE(
