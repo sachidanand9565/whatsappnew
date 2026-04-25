@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/hooks/useApi';
 import {
   Save, Eye, EyeOff, Copy, CheckCircle, AlertTriangle,
@@ -192,6 +192,9 @@ export default function SettingsPage() {
   const [connecting, setConnecting]   = useState(false);
   const [connectResults, setConnectResults] = useState<{ step: string; status: string; detail?: string }[] | null>(null);
 
+  // Embedded Signup: WABA + phone data arrives via postMessage before FB.login callback
+  const embeddedDataRef = useRef<{ waba_id: string; phone_number_id: string } | null>(null);
+
   // Custom webhooks
   const [hooks, setHooks]               = useState<CWHook[]>([]);
   const [addForm, setAddForm]           = useState({ name: '', url: '', secret: '' });
@@ -206,10 +209,28 @@ export default function SettingsPage() {
 
   const APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || '';
 
-  // Load Facebook JS SDK
+  // Load Facebook JS SDK + listen for Embedded Signup postMessage
   useEffect(() => {
-    if (!APP_ID) return;
-    if (document.getElementById('facebook-jssdk')) { setFbLoaded(true); return; }
+    // Embedded Signup sends waba_id + phone_number_id via postMessage
+    function handleMessage(event: MessageEvent) {
+      if (event.origin !== 'https://www.facebook.com') return;
+      try {
+        const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (msg?.type === 'WA_EMBEDDED_SIGNUP' && msg?.event === 'FINISH' && msg?.data) {
+          embeddedDataRef.current = {
+            waba_id:         msg.data.waba_id,
+            phone_number_id: msg.data.phone_number_id,
+          };
+        }
+      } catch { /* ignore parse errors */ }
+    }
+    window.addEventListener('message', handleMessage);
+
+    if (!APP_ID) return () => window.removeEventListener('message', handleMessage);
+    if (document.getElementById('facebook-jssdk')) {
+      setFbLoaded(true);
+      return () => window.removeEventListener('message', handleMessage);
+    }
     window.fbAsyncInit = () => {
       window.FB.init({ appId: APP_ID, version: 'v20.0', xfbml: false, cookie: true });
       setFbLoaded(true);
@@ -219,6 +240,7 @@ export default function SettingsPage() {
     script.src = 'https://connect.facebook.net/en_US/sdk.js';
     script.async = true;
     document.body.appendChild(script);
+    return () => window.removeEventListener('message', handleMessage);
   }, [APP_ID]);
 
   useEffect(() => {
@@ -242,9 +264,10 @@ export default function SettingsPage() {
     apiFetch('/api/webhooks').then((r) => setHooks(r.data || []));
   }
 
-  // Step 1: Facebook OAuth → get WABAs
+  // Step 1: Facebook Embedded Signup → WABA + phone via postMessage, token via callback
   function loginWithFacebook() {
     if (!window.FB) { toast.error('Facebook SDK not loaded yet'); return; }
+    embeddedDataRef.current = null; // reset before each attempt
     setFbLoading(true);
     window.FB.login((res) => {
       setFbLoading(false);
@@ -254,33 +277,34 @@ export default function SettingsPage() {
       }
       const token = res.authResponse.accessToken;
       setFbToken(token);
-      // Fetch WABAs from our backend
-      apiFetch('/api/auth/meta', {
-        method: 'POST',
-        body: JSON.stringify({ access_token: token }),
-      }).then((r) => {
-        if (!r.data || r.data.length === 0) {
-          toast.error('No WhatsApp Business Accounts found on this Facebook account.');
-          return;
-        }
-        setWabas(r.data);
-      }).catch((err) => {
-        toast.error(err instanceof Error ? err.message : 'Failed to fetch accounts');
-      });
+
+      // Embedded Signup sends waba_id + phone_number_id via postMessage (stored in ref)
+      const embedded = embeddedDataRef.current;
+      if (embedded?.waba_id && embedded?.phone_number_id) {
+        // Auto-connect directly — no WABA picker modal needed
+        handleConnect(embedded.waba_id, embedded.phone_number_id, '', token);
+      } else {
+        // Popup closed without completing Embedded Signup
+        toast.error('WhatsApp account selection not completed. Please complete all steps in the popup and try again.');
+      }
     }, {
       scope: 'whatsapp_business_management,whatsapp_business_messaging',
-      return_scopes: true,
+      extras: {
+        feature:            'whatsapp_embedded_signup',
+        sessionInfoVersion: 2,
+      },
     });
   }
 
-  // Step 2: User selects WABA + phone → full connect
-  async function handleConnect(waba_id: string, phone_number_id: string, business_name: string) {
+  // Step 2: Connect with obtained credentials
+  async function handleConnect(waba_id: string, phone_number_id: string, business_name: string, token?: string) {
     setWabas(null);
     setConnecting(true);
+    const useToken = token || fbToken;
     try {
       const r = await apiFetch('/api/auth/meta/connect', {
         method: 'POST',
-        body: JSON.stringify({ access_token: fbToken, waba_id, phone_number_id, business_name }),
+        body: JSON.stringify({ access_token: useToken, waba_id, phone_number_id, business_name }),
       });
       setConnectResults(r.data?.results || []);
       // Refresh workspace form
