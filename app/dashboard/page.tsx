@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { apiFetch } from '@/hooks/useApi';
 import {
   MessageSquare, Users, Megaphone, CheckCircle, BookOpen,
-  TrendingUp, Facebook, Settings, RefreshCw, Zap, Phone,
+  TrendingUp, Facebook, Settings, RefreshCw,
   Copy, ExternalLink, BarChart3, Bot, ChevronRight, Wifi, WifiOff,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -14,6 +14,7 @@ interface Workspace {
   id: number;
   name: string;
   phone_number_id: string;
+  phone_display: string;
   waba_id: string;
   plan: string;
   is_active: number;
@@ -31,12 +32,25 @@ interface Summary {
   messages_failed: number;
 }
 
+interface WaStatus {
+  connected:      boolean;
+  phone_number?:  string;
+  verified_name?: string;
+  name_status?:   string;
+  name_declined?: boolean;
+  quality?:       { label: string; color: string };
+  quota?:         string | null;
+  api_error?:     string;
+}
+
 export default function DashboardPage() {
   const [workspace, setWorkspace]   = useState<Workspace | null>(null);
   const [summary, setSummary]       = useState<Summary | null>(null);
   const [chartData, setChartData]   = useState<{ date: string; sent: number; received: number }[]>([]);
   const [loading, setLoading]       = useState(true);
   const [wsLoading, setWsLoading]   = useState(true);
+  const [waStatus, setWaStatus]     = useState<WaStatus | null>(null);
+  const [statusLoading, setStatusLoading] = useState(true);
   const [userRole, setUserRole]     = useState('');
 
   const isConnected = !!(workspace?.phone_number_id && workspace?.waba_id);
@@ -47,6 +61,10 @@ export default function DashboardPage() {
     apiFetch('/api/workspace').then((r) => {
       if (r?.data) setWorkspace(r.data);
     }).finally(() => setWsLoading(false));
+
+    apiFetch('/api/workspace/status').then((r) => {
+      if (r?.data) setWaStatus(r.data);
+    }).finally(() => setStatusLoading(false));
 
     apiFetch('/api/analytics').then((r) => {
       if (r?.data) {
@@ -113,32 +131,59 @@ export default function DashboardPage() {
               ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
               : 'bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-200'
           }`}>
-            <div className="flex flex-wrap gap-6">
+            <div className="flex flex-wrap gap-6 items-start">
+
+              {/* API Status */}
               <div>
                 <p className="text-xs text-gray-500 font-medium mb-1">WhatsApp Business API</p>
                 <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold ${
                   isConnected ? 'bg-green-500 text-white' : 'bg-orange-400 text-white'
                 }`}>
-                  <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-white' : 'bg-white'} animate-pulse`} />
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                   {isConnected ? 'LIVE' : 'NOT CONNECTED'}
                 </div>
               </div>
 
               {isConnected && (
                 <>
+                  {/* Quality Rating — real from Meta */}
                   <div>
                     <p className="text-xs text-gray-500 font-medium mb-1">Quality Rating</p>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold bg-green-100 text-green-700">
-                      High
-                    </div>
+                    {statusLoading ? (
+                      <div className="h-6 w-16 bg-gray-200 animate-pulse rounded-full" />
+                    ) : (
+                      <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold ${
+                        waStatus?.quality?.color === 'green'  ? 'bg-green-100 text-green-700'  :
+                        waStatus?.quality?.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
+                        waStatus?.quality?.color === 'red'    ? 'bg-red-100 text-red-700'       :
+                                                                 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {waStatus?.quality?.label || 'N/A'}
+                      </div>
+                    )}
                   </div>
+
+                  {/* Messaging Quota — real from Meta */}
                   <div>
                     <p className="text-xs text-gray-500 font-medium mb-1">Messaging Quota</p>
-                    <p className="text-sm font-bold text-gray-800">Unlimited</p>
+                    {statusLoading ? (
+                      <div className="h-5 w-20 bg-gray-200 animate-pulse rounded" />
+                    ) : (
+                      <p className="text-sm font-bold text-gray-800">
+                        {waStatus?.quota ?? '—'}
+                      </p>
+                    )}
                   </div>
+
+                  {/* Phone / Verified Name */}
                   <div>
                     <p className="text-xs text-gray-500 font-medium mb-1">Phone Number</p>
-                    <p className="text-sm font-mono font-bold text-gray-800">{workspace?.phone_number_id}</p>
+                    <p className="text-sm font-mono font-bold text-gray-800">
+                      {waStatus?.phone_number || workspace?.phone_display || workspace?.phone_number_id}
+                    </p>
+                    {waStatus?.verified_name && (
+                      <p className="text-xs text-gray-400 mt-0.5">{waStatus.verified_name}</p>
+                    )}
                   </div>
                 </>
               )}
@@ -149,6 +194,24 @@ export default function DashboardPage() {
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
                     <Facebook size={15} /> Connect WhatsApp
                   </Link>
+                </div>
+              )}
+
+              {/* Meta API error notice */}
+              {waStatus?.api_error && (
+                <div className="w-full bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-700">
+                  Meta API: {waStatus.api_error}
+                </div>
+              )}
+
+              {/* Display name declined warning */}
+              {waStatus?.name_declined && (
+                <div className="w-full bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700 flex items-start gap-2">
+                  <span className="font-bold flex-shrink-0">⚠️</span>
+                  <span>
+                    <strong>Display name &quot;{waStatus.verified_name}&quot; was DECLINED by Meta.</strong>{' '}
+                    Go to Meta Business Manager → WhatsApp Accounts → Profile to resubmit.
+                  </span>
                 </div>
               )}
             </div>
@@ -232,113 +295,105 @@ export default function DashboardPage() {
         </div>
 
         {/* ── RIGHT SIDEBAR (1/3) ───────────────────────────── */}
-        <div className="space-y-5">
+        <div className="space-y-4">
 
-          {/* Profile card */}
-          <div className="card space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-whatsapp-teal flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                {workspace?.name?.charAt(0)?.toUpperCase() || '?'}
-              </div>
-              <div className="min-w-0">
-                <p className="font-bold text-gray-900 truncate">{workspace?.name || '—'}</p>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${planColor[plan] || planColor.FREE}`}>
-                  {plan}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2 pt-2 border-t border-gray-100">
-              {workspace?.phone_number_id ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Phone size={13} className="text-gray-400" />
-                    <span className="text-xs text-gray-500">Phone Number ID</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs font-mono text-gray-700">{workspace.phone_number_id.slice(0,8)}…</span>
-                    <button onClick={() => copyText(workspace.phone_number_id)} className="text-gray-400 hover:text-gray-600">
-                      <Copy size={12} />
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              {workspace?.waba_id ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Zap size={13} className="text-gray-400" />
-                    <span className="text-xs text-gray-500">WABA ID</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs font-mono text-gray-700">{workspace.waba_id.slice(0,8)}…</span>
-                    <button onClick={() => copyText(workspace.waba_id)} className="text-gray-400 hover:text-gray-600">
-                      <Copy size={12} />
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              {workspace?.verify_token ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle size={13} className="text-gray-400" />
-                    <span className="text-xs text-gray-500">Verify Token</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs font-mono text-gray-700">{workspace.verify_token.slice(0,8)}…</span>
-                    <button onClick={() => copyText(workspace.verify_token)} className="text-gray-400 hover:text-gray-600">
-                      <Copy size={12} />
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <Link href="/settings"
-              className="flex items-center justify-center gap-2 w-full py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-              <ExternalLink size={13} /> View Full Settings
-            </Link>
-          </div>
-
-          {/* Connect via Facebook */}
-          <div className="card space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
-                <Facebook size={15} className="text-white" />
-              </div>
+          {/* ── Profile Card ── */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            {/* Green header */}
+            <div className="bg-gradient-to-br from-whatsapp-dark to-whatsapp-teal px-4 py-4 flex items-start justify-between">
               <div>
-                <p className="text-sm font-semibold text-gray-900">
-                  {isConnected ? 'WhatsApp Connected' : 'Connect WhatsApp'}
+                <p className="text-white font-bold text-base leading-tight">
+                  {wsLoading ? '—' : (workspace?.name || 'My Business')}
                 </p>
-                <p className="text-xs text-gray-400">
-                  {isConnected ? 'Your account is live' : 'Link your WhatsApp Business Account'}
-                </p>
+                <p className="text-white/60 text-xs mt-0.5 uppercase tracking-widest">{plan}</p>
               </div>
+              <Link href="/settings" className="text-white/60 hover:text-white transition-colors mt-0.5">
+                <ExternalLink size={14} />
+              </Link>
             </div>
 
-            {isConnected ? (
-              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                <CheckCircle size={14} className="text-green-600" />
-                <span className="text-xs font-semibold text-green-700">LIVE — Receiving messages</span>
+            {/* Body */}
+            <div className="px-4 py-4 space-y-3">
+              {/* Avatar + LIVE badge */}
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-whatsapp-teal/10 border border-whatsapp-teal/20 flex items-center justify-center text-whatsapp-teal font-bold text-lg flex-shrink-0">
+                  {workspace?.name?.charAt(0)?.toUpperCase() || '?'}
+                </div>
+                <div>
+                  {isConnected ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                      LIVE
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
+                      NOT CONNECTED
+                    </span>
+                  )}
+                </div>
               </div>
-            ) : (
+
+              {/* Large phone number */}
+              {workspace?.phone_display || workspace?.phone_number_id ? (
+                <p className="text-2xl font-bold text-gray-900 tracking-tight">
+                  {workspace.phone_display || workspace.phone_number_id}
+                </p>
+              ) : (
+                <p className="text-sm text-gray-400 italic">No number connected yet</p>
+              )}
+
+              {/* Settings link */}
               <Link href="/settings"
-                className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
-                <Facebook size={15} /> Connect Now
+                className="flex items-center gap-1.5 text-xs text-whatsapp-teal font-medium hover:underline">
+                View Settings <ChevronRight size={12} />
               </Link>
-            )}
+            </div>
           </div>
 
-          {/* More stats */}
+          {/* ── Connect / Status ── */}
+          {!isConnected ? (
+            <Link href="/settings"
+              className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
+              <Facebook size={16} /> Connect WhatsApp Business
+            </Link>
+          ) : (
+            <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center gap-3">
+              <CheckCircle size={16} className="text-green-600 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-green-800">WhatsApp API — LIVE</p>
+                <p className="text-xs text-green-600">Receiving & sending messages</p>
+              </div>
+            </div>
+          )}
+
+          {/* ── Current Plan ── */}
+          <div className="card space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Current Plan</p>
+              <Link href="/billing" className="text-xs text-whatsapp-teal font-semibold hover:underline">
+                View Billing
+              </Link>
+            </div>
+            <div className="flex items-center justify-between">
+              <p className={`text-lg font-bold ${plan === 'ENTERPRISE' ? 'text-purple-700' : plan === 'PRO' ? 'text-blue-700' : 'text-gray-700'}`}>
+                {plan}
+              </p>
+              <Link href="/billing"
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-whatsapp-green text-white hover:bg-whatsapp-teal transition-colors">
+                Upgrade
+              </Link>
+            </div>
+          </div>
+
+          {/* ── Performance ── */}
           {summary && (
             <div className="card space-y-3">
-              <p className="text-sm font-semibold text-gray-900">Performance</p>
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Performance</p>
               {[
-                { label: 'Read Rate',         value: `${summary.read_rate}%`,      icon: BookOpen,   color: 'text-yellow-500' },
-                { label: 'New Contacts Today', value: summary.new_contacts_today,   icon: Users,      color: 'text-purple-500' },
-                { label: 'Converted Leads',   value: summary.converted_leads,      icon: TrendingUp, color: 'text-teal-500' },
-                { label: 'Messages Failed',   value: summary.messages_failed,      icon: MessageSquare, color: 'text-red-400' },
+                { label: 'Read Rate',          value: `${summary.read_rate}%`,     icon: BookOpen,      color: 'text-yellow-500' },
+                { label: 'New Contacts Today', value: summary.new_contacts_today,  icon: Users,         color: 'text-purple-500' },
+                { label: 'Converted Leads',    value: summary.converted_leads,     icon: TrendingUp,    color: 'text-teal-500'   },
+                { label: 'Messages Failed',    value: summary.messages_failed,     icon: MessageSquare, color: 'text-red-400'    },
               ].map(({ label, value, icon: Icon, color }) => (
                 <div key={label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

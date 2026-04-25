@@ -41,7 +41,7 @@ function MetaConnectModal({
   onClose,
 }: {
   wabas: WABAOption[];
-  onConnect: (waba_id: string, phone_number_id: string, business_name: string) => void;
+  onConnect: (waba_id: string, phone_number_id: string, business_name: string, display_phone_number?: string) => void;
   onClose: () => void;
 }) {
   const [selectedWaba, setSelectedWaba] = useState<WABAOption | null>(
@@ -59,7 +59,8 @@ function MetaConnectModal({
 
   function submit() {
     if (!selectedWaba || !selectedPhone) return;
-    onConnect(selectedWaba.id, selectedPhone, selectedWaba.business_name);
+    const phoneObj = selectedWaba.phone_numbers.find((p) => p.id === selectedPhone);
+    onConnect(selectedWaba.id, selectedPhone, selectedWaba.business_name, phoneObj?.display_phone_number);
   }
 
   return (
@@ -297,7 +298,7 @@ export default function SettingsPage() {
             const token = r.data?.access_token;
             if (!token) { toast.error('Token exchange failed'); return; }
             setFbToken(token);
-            return handleConnect(embedded.waba_id, embedded.phone_number_id, '', token);
+            return handleConnect(embedded.waba_id, embedded.phone_number_id, '', undefined, token);
           })
           .catch((e) => toast.error(e?.message || 'Connect failed'))
           .finally(() => setConnecting(false));
@@ -341,14 +342,14 @@ export default function SettingsPage() {
   }
 
   // Step 2: Connect with obtained credentials
-  async function handleConnect(waba_id: string, phone_number_id: string, business_name: string, token?: string) {
+  async function handleConnect(waba_id: string, phone_number_id: string, business_name: string, display_phone_number?: string, token?: string) {
     setWabas(null);
     setConnecting(true);
     const useToken = token || fbToken;
     try {
       const r = await apiFetch('/api/auth/meta/connect', {
         method: 'POST',
-        body: JSON.stringify({ access_token: useToken, waba_id, phone_number_id, business_name }),
+        body: JSON.stringify({ access_token: useToken, waba_id, phone_number_id, business_name, display_phone_number }),
       });
       setConnectResults(r.data?.results || []);
       // Refresh workspace form

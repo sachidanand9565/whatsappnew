@@ -11,13 +11,48 @@ import { RowDataPacket } from 'mysql2';
 export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req);
-    const rows = await query<RowDataPacket[]>(
-      `SELECT id, name, phone_number_id, waba_id, verify_token, plan, is_active
-       FROM workspaces WHERE id = ?`,
-      [payload.workspaceId]
-    );
+
+    // Try with phone_display column, fallback if column doesn't exist yet
+    let rows: RowDataPacket[];
+    try {
+      rows = await query<RowDataPacket[]>(
+        `SELECT id, name, phone_number_id, phone_display, waba_id, verify_token, plan, is_active, access_token
+         FROM workspaces WHERE id = ?`,
+        [payload.workspaceId]
+      );
+    } catch {
+      rows = await query<RowDataPacket[]>(
+        `SELECT id, name, phone_number_id, waba_id, verify_token, plan, is_active, access_token
+         FROM workspaces WHERE id = ?`,
+        [payload.workspaceId]
+      );
+    }
+
     if (rows.length === 0) return apiError('Workspace not found', 404);
-    return apiSuccess(rows[0]);
+    const ws = rows[0];
+
+    // Auto-fetch display phone number if missing but credentials exist
+    if (!ws.phone_display && ws.phone_number_id && ws.access_token) {
+      try {
+        const metaRes = await fetch(
+          `https://graph.facebook.com/v20.0/${ws.phone_number_id}?fields=display_phone_number,verified_name&access_token=${ws.access_token}`
+        );
+        const metaData = await metaRes.json();
+        if (metaData.display_phone_number) {
+          ws.phone_display = metaData.display_phone_number;
+          // Save for next time
+          await execute(
+            'UPDATE workspaces SET phone_display = ? WHERE id = ?',
+            [metaData.display_phone_number, ws.id]
+          ).catch(() => { /* ignore if column missing */ });
+        }
+      } catch { /* ignore — Meta API unavailable */ }
+    }
+
+    // Never expose access_token to frontend
+    const { access_token: _token, ...safeWs } = ws;
+    void _token;
+    return apiSuccess(safeWs);
   } catch (err: unknown) {
     if (err instanceof Error && err.message === 'UNAUTHORIZED') return apiError('Unauthorized', 401);
     return apiError('Server error', 500);

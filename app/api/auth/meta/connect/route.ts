@@ -41,19 +41,30 @@ export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req);
 
-    const { access_token, waba_id, phone_number_id, business_name } = await req.json();
+    const { access_token, waba_id, phone_number_id, business_name, display_phone_number } = await req.json();
     if (!access_token || !waba_id || !phone_number_id) {
       return apiError('access_token, waba_id and phone_number_id are required', 400);
     }
 
     // ── 1. Save credentials to workspace ─────────────────────
-    await execute(
-      `UPDATE workspaces
-       SET access_token=?, waba_id=?, phone_number_id=?,
-           name = COALESCE(NULLIF(?, ''), name)
-       WHERE id = ?`,
-      [access_token, waba_id, phone_number_id, business_name || '', payload.workspaceId]
-    );
+    // Try with phone_display column first, fallback without it
+    try {
+      await execute(
+        `UPDATE workspaces
+         SET access_token=?, waba_id=?, phone_number_id=?, phone_display=?,
+             name = COALESCE(NULLIF(?, ''), name)
+         WHERE id = ?`,
+        [access_token, waba_id, phone_number_id, display_phone_number || null, business_name || '', payload.workspaceId]
+      );
+    } catch {
+      await execute(
+        `UPDATE workspaces
+         SET access_token=?, waba_id=?, phone_number_id=?,
+             name = COALESCE(NULLIF(?, ''), name)
+         WHERE id = ?`,
+        [access_token, waba_id, phone_number_id, business_name || '', payload.workspaceId]
+      );
+    }
 
     const results: { step: string; status: string; detail?: string }[] = [
       { step: 'Credentials saved', status: 'ok' },
