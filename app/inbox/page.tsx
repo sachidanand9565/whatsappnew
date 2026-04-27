@@ -405,6 +405,8 @@ export default function InboxPage() {
   const [contacts, setContacts]     = useState<Contact[]>([]);
   const [selected, setSelected]     = useState<Contact | null>(null);
   const [messages, setMessages]     = useState<Message[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(true);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const [text, setText]             = useState('');
   const [search, setSearch]         = useState('');
   const [sending, setSending]       = useState(false);
@@ -492,6 +494,7 @@ export default function InboxPage() {
   };
 
   const loadContacts = useCallback(() => {
+    setContactsLoading(true);
     apiFetch('/api/contacts?limit=200&chatStatus=inbox').then((r) => {
       const list: Contact[] = r.data?.data || [];
       setContacts(list);
@@ -512,7 +515,7 @@ export default function InboxPage() {
         saveUnread(next);
         return next;
       });
-    });
+    }).finally(() => setContactsLoading(false));
   }, []);
 
   // Load all intervened contacts for admin/manager (bypasses inbox assignment restriction)
@@ -531,7 +534,10 @@ export default function InboxPage() {
   }, [loadContacts, loadIntervenedContacts]);
 
   const loadMessages = useCallback((contactId: number) => {
-    apiFetch(`/api/messages?contactId=${contactId}&limit=80`).then((r) => setMessages(r.data || []));
+    setMessagesLoading(true);
+    apiFetch(`/api/messages?contactId=${contactId}&limit=80`)
+      .then((r) => setMessages(r.data || []))
+      .finally(() => setMessagesLoading(false));
   }, []);
 
   // Track selected contact in a ref so the SSE handler always sees the latest value
@@ -932,7 +938,21 @@ export default function InboxPage() {
 
         {/* Contact items */}
         <div className="flex-1 overflow-y-auto">
-          {(() => {
+          {/* Skeleton while loading */}
+          {contactsLoading && (
+            <div className="divide-y divide-gray-50 animate-pulse">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-3 py-3">
+                  <div className="w-10 h-10 rounded-full bg-gray-200 shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 bg-gray-200 rounded w-3/5" />
+                    <div className="h-2.5 bg-gray-100 rounded w-4/5" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {!contactsLoading && (() => {
             const isAdminOrManager = currentUserRole === 'admin' || currentUserRole === 'manager';
             // For admin/manager intervened tab: use the dedicated intervenedContacts list
             const source = (tab === 'intervened' && isAdminOrManager)
@@ -943,7 +963,7 @@ export default function InboxPage() {
             }
             return null;
           })()}
-          {(() => {
+          {!contactsLoading && (() => {
             const isAdminOrManager = currentUserRole === 'admin' || currentUserRole === 'manager';
             const source = (tab === 'intervened' && isAdminOrManager)
               ? intervenedContacts.filter((c) => (c.name || c.phone).toLowerCase().includes(search.toLowerCase()))
@@ -1077,6 +1097,18 @@ export default function InboxPage() {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-[#f0f0f0]" ref={chatRef}
             style={{ backgroundImage: 'radial-gradient(circle, #d4d4d4 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+
+            {/* Messages loading skeleton */}
+            {messagesLoading && messages.length === 0 && (
+              <div className="space-y-3 animate-pulse">
+                {[70, 50, 85, 45, 65].map((w, i) => (
+                  <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`h-10 bg-gray-300/60 rounded-2xl`} style={{ width: `${w}%` }} />
+                  </div>
+                ))}
+              </div>
+            )}
+
             {messages.map((m, idx) => {
               const tpl      = parseTemplateContent(m.content);
               const media    = parseMediaContent(m.content);
@@ -1422,11 +1454,18 @@ export default function InboxPage() {
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-400 bg-gray-50">
-          <div className="text-center">
-            <div className="text-5xl mb-3">💬</div>
-            <p className="font-medium text-gray-500">Select a contact to start chatting</p>
-            <p className="text-sm text-gray-400 mt-1">Choose from the contact list on the left</p>
-          </div>
+          {contactsLoading ? (
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-10 h-10 border-4 border-whatsapp-green border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-gray-400">Loading conversations…</p>
+            </div>
+          ) : (
+            <div className="text-center">
+              <div className="text-5xl mb-3">💬</div>
+              <p className="font-medium text-gray-500">Select a contact to start chatting</p>
+              <p className="text-sm text-gray-400 mt-1">Choose from the contact list on the left</p>
+            </div>
+          )}
         </div>
       )}
 
