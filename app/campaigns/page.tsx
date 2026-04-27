@@ -75,13 +75,23 @@ export default function CampaignsPage() {
     }
   }
 
+  // Use accurate counts from campaign_contacts (cc_* fields); fall back to campaigns table
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyC = (c: Campaign) => c as any;
+  function ccSent(c: Campaign)      { return Number(anyC(c).cc_sent      ?? c.sent_count      ?? 0); }
+  function ccDelivered(c: Campaign) { return Number(anyC(c).cc_delivered ?? c.delivered_count ?? 0); }
+  function ccRead(c: Campaign)      { return Number(anyC(c).cc_read      ?? c.read_count      ?? 0); }
+  function ccFailed(c: Campaign)    { return Number(anyC(c).cc_failed    ?? c.failed_count    ?? 0); }
+
   function deliveryRate(c: Campaign) {
-    if (!c.sent_count) return '—';
-    return `${Math.round((c.delivered_count / c.sent_count) * 100)}%`;
+    const total = c.total_contacts;
+    if (!total) return '—';
+    return `${Math.round((ccDelivered(c) / total) * 100)}%`;
   }
   function readRate(c: Campaign) {
-    if (!c.sent_count) return '—';
-    return `${Math.round((c.read_count / c.sent_count) * 100)}%`;
+    const total = c.total_contacts;
+    if (!total) return '—';
+    return `${Math.round((ccRead(c) / total) * 100)}%`;
   }
 
   const filtered = filterType === 'all'
@@ -171,17 +181,17 @@ export default function CampaignsPage() {
                     )}
                   </div>
 
-                  {/* Stats */}
+                  {/* Stats — counts from campaign_contacts (accurate) */}
                   <div className="flex gap-6 text-sm">
                     {[
-                      { label: 'Total',     value: c.total_contacts },
-                      { label: 'Sent',      value: c.sent_count,      color: 'text-blue-600' },
-                      { label: 'Delivered', value: deliveryRate(c),   color: 'text-green-600' },
+                      { label: 'Total',     value: c.total_contacts,  color: 'text-gray-900'   },
+                      { label: 'Sent',      value: ccSent(c),         color: 'text-blue-600'   },
+                      { label: 'Delivered', value: deliveryRate(c),   color: 'text-green-600'  },
                       { label: 'Read',      value: readRate(c),       color: 'text-purple-600' },
-                      { label: 'Failed',    value: c.failed_count,    color: 'text-red-600' },
+                      { label: 'Failed',    value: ccFailed(c),       color: 'text-red-600'    },
                     ].map(({ label, value, color }) => (
                       <div key={label} className="text-center">
-                        <p className={`font-semibold ${color || 'text-gray-900'}`}>{value}</p>
+                        <p className={`font-semibold ${color}`}>{value}</p>
                         <p className="text-gray-400 text-xs">{label}</p>
                       </div>
                     ))}
@@ -229,11 +239,11 @@ export default function CampaignsPage() {
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-whatsapp-green rounded-full transition-all"
-                        style={{ width: `${Math.round((c.sent_count / c.total_contacts) * 100)}%` }}
+                        style={{ width: `${Math.round(((ccSent(c) + ccFailed(c)) / c.total_contacts) * 100)}%` }}
                       />
                     </div>
                     <p className="text-xs text-gray-400 mt-1 text-right">
-                      {c.sent_count}/{c.total_contacts} sent
+                      {ccSent(c) + ccFailed(c)}/{c.total_contacts} processed
                     </p>
                   </div>
                 )}

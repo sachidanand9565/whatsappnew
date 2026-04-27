@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   try {
     const payload = requireAuth(req);
     const body = await req.json();
-    const { contactId, type, text, templateName, language, components } = body;
+    const { contactId, type, text, templateName, language, components, templateParams } = body;
 
     if (!contactId) return apiError('contactId is required');
 
@@ -43,8 +43,43 @@ export async function POST(req: NextRequest) {
 
     if (type === 'template') {
       if (!templateName) return apiError('templateName required for template messages');
-      result  = await sendTemplateMessage(access_token as string, phone_number_id as string, phone, templateName, language || 'en', components || []);
-      content = JSON.stringify({ templateName, components });
+
+      // Accept either full WhatsApp `components` array OR simple `templateParams` string array
+      let resolvedComponents: object[] = components || [];
+      if (!components && Array.isArray(templateParams) && templateParams.length > 0) {
+        resolvedComponents = [{
+          type: 'body',
+          parameters: templateParams.map((val: string) => ({ type: 'text', text: String(val) })),
+        }];
+      }
+
+      result = await sendTemplateMessage(access_token as string, phone_number_id as string, phone, templateName, language || 'en', resolvedComponents);
+
+      // Fetch template body from DB so inbox can render it properly
+      const tplRows = await query<RowDataPacket[]>(
+        'SELECT body_text, buttons, header_type, header_content, footer_text FROM templates WHERE name = ? AND workspace_id = ? LIMIT 1',
+        [templateName, payload.workspaceId]
+      );
+      const tplRow = tplRows[0];
+      let bodyText = (tplRow?.body_text as string) || '';
+
+      // Replace variables with actual values from templateParams
+      if (Array.isArray(templateParams) && templateParams.length > 0) {
+        templateParams.forEach((val: string, i: number) => {
+          bodyText = bodyText.replace(new RegExp(`\\{\\{${i + 1}\\}\\}`, 'g'), val);
+        });
+      }
+
+      // Store in inbox-compatible format so messages render correctly
+      content = JSON.stringify({
+        __type:         'template',
+        template_name:  templateName,
+        header_type:    (tplRow?.header_type  as string) || '',
+        header_content: (tplRow?.header_content as string) || '',
+        body:           bodyText,
+        footer:         (tplRow?.footer_text  as string) || '',
+        buttons:        JSON.parse((tplRow?.buttons as string) || '[]'),
+      });
       msgType = 'template';
     } else {
       if (!text) return apiError('text required');

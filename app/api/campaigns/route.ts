@@ -12,12 +12,31 @@ export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req);
 
+    // Subquery: accurate per-status counts from campaign_contacts
+    const statsSub = `
+      LEFT JOIN (
+        SELECT campaign_id,
+          COALESCE(SUM(status IN ('sent','delivered','read')), 0) AS cc_sent,
+          COALESCE(SUM(status IN ('delivered','read')),        0) AS cc_delivered,
+          COALESCE(SUM(status = 'read'),                       0) AS cc_read,
+          COALESCE(SUM(status = 'failed'),                     0) AS cc_failed
+        FROM campaign_contacts
+        GROUP BY campaign_id
+      ) cc_stats ON cc_stats.campaign_id = c.id`;
+
+    const selectCols = `c.*, t.name as template_name,
+      COALESCE(cc_stats.cc_sent,      0) AS cc_sent,
+      COALESCE(cc_stats.cc_delivered, 0) AS cc_delivered,
+      COALESCE(cc_stats.cc_read,      0) AS cc_read,
+      COALESCE(cc_stats.cc_failed,    0) AS cc_failed`;
+
     // Agents only see campaigns assigned to them
     if (payload.role === 'agent') {
       const campaigns = await query<RowDataPacket[]>(
-        `SELECT c.*, t.name as template_name
+        `SELECT ${selectCols}
          FROM campaigns c
          LEFT JOIN templates t ON t.id = c.template_id
+         ${statsSub}
          JOIN campaign_assignments ca ON ca.campaign_id = c.id AND ca.agent_id = ?
          WHERE c.workspace_id = ?
          ORDER BY c.created_at DESC`,
@@ -27,9 +46,10 @@ export async function GET(req: NextRequest) {
     }
 
     const campaigns = await query<RowDataPacket[]>(
-      `SELECT c.*, t.name as template_name
+      `SELECT ${selectCols}
        FROM campaigns c
        LEFT JOIN templates t ON t.id = c.template_id
+       ${statsSub}
        WHERE c.workspace_id = ?
        ORDER BY c.created_at DESC`,
       [payload.workspaceId]

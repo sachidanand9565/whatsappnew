@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/hooks/useApi';
-import { Send, Search, FileText, Image, FileVideo, File, ChevronDown, ChevronUp, Download, Music, MapPin, User, UserCheck, CheckCircle, Loader2, LayoutTemplate, X, Clock, ArrowRightLeft, Zap, Plus, Trash2, Tag } from 'lucide-react';
+import { Send, Search, FileText, Image, FileVideo, File, ChevronDown, ChevronUp, Download, Music, MapPin, User, UserCheck, CheckCircle, Loader2, LayoutTemplate, X, Clock, ArrowRightLeft, Zap, Plus, Trash2, Tag, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Contact, Message } from '@/types';
 
@@ -375,8 +376,34 @@ function ProfilePanel({ contact, templateMsgCount, sessionMsgCount, onContactUpd
   );
 }
 
+// ── Template variable helpers ─────────────────────────────────
+function extractVarCount(body: string): number {
+  const nums = (body?.match(/\{\{(\d+)\}\}/g) || []).map(m => parseInt(m.replace(/\{\{|\}\}/g, '')));
+  return nums.length > 0 ? Math.max(...nums) : 0;
+}
+function applyTplParams(body: string, params: string[]): string {
+  return (body || '').replace(/\{\{(\d+)\}\}/g, (_, n) => params[Number(n) - 1] || `{{${n}}}`);
+}
+// Simple bold/italic renderer for template preview
+function renderTplPreview(text: string): React.ReactNode {
+  return text.split('\n').map((line, li, arr) => {
+    const parts: React.ReactNode[] = [];
+    const re = /(\*[^*\n]+\*|_[^_\n]+_)/g;
+    let last = 0, k = 0, m: RegExpExecArray | null;
+    while ((m = re.exec(line)) !== null) {
+      if (m.index > last) parts.push(line.slice(last, m.index));
+      const raw = m[0], inner = raw.slice(1, -1);
+      parts.push(raw[0] === '*' ? <strong key={k++}>{inner}</strong> : <em key={k++}>{inner}</em>);
+      last = m.index + raw.length;
+    }
+    if (last < line.length) parts.push(line.slice(last));
+    return <span key={li}>{parts}{li < arr.length - 1 && <br />}</span>;
+  });
+}
+
 // ── Main Inbox Page ───────────────────────────────────────────
 export default function InboxPage() {
+  const searchParams                = useSearchParams();
   const [contacts, setContacts]     = useState<Contact[]>([]);
   const [selected, setSelected]     = useState<Contact | null>(null);
   const [messages, setMessages]     = useState<Message[]>([]);
@@ -388,6 +415,8 @@ export default function InboxPage() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [templates, setTemplates]   = useState<{ id: number; name: string; language: string; body_text: string; status: string }[]>([]);
   const [sendingTpl, setSendingTpl] = useState<number | null>(null);
+  const [tplForParams, setTplForParams] = useState<{ id: number; name: string; language: string; body_text: string } | null>(null);
+  const [tplParamVals, setTplParamVals] = useState<string[]>([]);
   const [showTransfer, setShowTransfer]     = useState(false);
   const [transferAgents, setTransferAgents] = useState<{ id: number; name: string; workspace_role: string }[]>([]);
   const [loadingAgents, setLoadingAgents]   = useState(false);
@@ -507,6 +536,32 @@ export default function InboxPage() {
     apiFetch(`/api/messages?contactId=${contactId}&limit=80`).then((r) => setMessages(r.data || []));
   }, []);
 
+  // Auto-open contact when navigating from campaigns page (?phone=...)
+  const openPhoneParam = searchParams.get('phone');
+  useEffect(() => {
+    if (!openPhoneParam) return;
+    // Fetch the contact by phone regardless of chatStatus
+    apiFetch(`/api/contacts?search=${encodeURIComponent(openPhoneParam)}&limit=1`)
+      .then((r) => {
+        const contact: Contact | undefined = (r.data?.data || [])[0];
+        if (contact) {
+          setSelected(contact);
+          loadMessages(contact.id);
+          // Also add to contacts list if not already present
+          setContacts(prev =>
+            prev.find(c => c.id === contact.id) ? prev : [contact, ...prev]
+          );
+          // Switch to 'all' tab so the contact is visible in the sidebar
+          setTab('all');
+        } else {
+          toast.error('Contact not found');
+        }
+      })
+      .catch(() => toast.error('Failed to open contact'));
+  // Run once when param arrives
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openPhoneParam]);
+
   // Track selected contact in a ref so the SSE handler always sees the latest value
   const selectedRef = useRef<Contact | null>(null);
   useEffect(() => { selectedRef.current = selected; }, [selected]);
@@ -609,15 +664,17 @@ export default function InboxPage() {
     }
   }
 
-  async function sendTemplate(templateName: string, language: string, tplId: number) {
+  async function sendTemplate(templateName: string, language: string, tplId: number, params: string[] = []) {
     if (!selected) return;
     setSendingTpl(tplId);
     try {
       await apiFetch('/api/send-message', {
         method: 'POST',
-        body: JSON.stringify({ contactId: selected.id, type: 'template', templateName, language }),
+        body: JSON.stringify({ contactId: selected.id, type: 'template', templateName, language, templateParams: params }),
       });
       setShowTemplates(false);
+      setTplForParams(null);
+      setTplParamVals([]);
       loadMessages(selected.id);
       toast.success('Template sent!');
     } catch (err) {
@@ -1173,27 +1230,98 @@ export default function InboxPage() {
           {/* Template picker panel */}
           {showTemplates && (
             <div className="border-t border-gray-200 bg-white">
-              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
-                <p className="text-sm font-semibold text-gray-700">Select a Template</p>
-                <button onClick={() => setShowTemplates(false)}><X size={16} className="text-gray-400 hover:text-gray-600" /></button>
-              </div>
-              <div className="max-h-52 overflow-y-auto divide-y divide-gray-50">
-                {templates.length === 0
-                  ? <p className="text-center text-xs text-gray-400 py-6">No approved templates</p>
-                  : templates.map((t) => (
-                    <button key={t.id} onClick={() => sendTemplate(t.name, t.language, t.id)}
-                      disabled={sendingTpl === t.id}
-                      className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors disabled:opacity-50">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-gray-800">{t.name}</p>
-                        {sendingTpl === t.id
-                          ? <Loader2 size={14} className="animate-spin text-gray-400" />
-                          : <Send size={13} className="text-gray-300" />}
-                      </div>
-                      <p className="text-xs text-gray-400 mt-0.5 truncate">{t.body_text}</p>
+              {tplForParams ? (
+                /* ── Params form ── */
+                <>
+                  <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setTplForParams(null)} className="text-gray-400 hover:text-gray-600">
+                        <ArrowRightLeft size={14} className="rotate-180" />
+                      </button>
+                      <p className="text-sm font-semibold text-gray-700">Parameters</p>
+                    </div>
+                    <button onClick={() => { setShowTemplates(false); setTplForParams(null); }}>
+                      <X size={16} className="text-gray-400 hover:text-gray-600" />
                     </button>
-                  ))}
-              </div>
+                  </div>
+                  <div className="overflow-y-auto max-h-72 p-4 space-y-3">
+                    {/* Variable inputs */}
+                    {tplParamVals.map((val, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <span className="text-xs font-mono text-gray-500 w-12 shrink-0 text-right">{`{{${i + 1}}}`}</span>
+                        <input
+                          value={val}
+                          onChange={e => {
+                            const next = [...tplParamVals];
+                            next[i] = e.target.value;
+                            setTplParamVals(next);
+                          }}
+                          placeholder="value"
+                          className="input text-sm py-1.5 flex-1"
+                        />
+                      </div>
+                    ))}
+                    {/* Preview */}
+                    <div className="border-t pt-3 mt-1">
+                      <p className="text-xs font-semibold text-gray-500 flex items-center gap-1 mb-2">
+                        <Eye size={12} /> Preview
+                      </p>
+                      <div className="bg-[#dcf8c6] rounded-xl rounded-br-sm px-3 py-2 text-sm text-gray-800 leading-snug whitespace-pre-wrap shadow-sm">
+                        {renderTplPreview(applyTplParams(tplForParams.body_text, tplParamVals))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="px-4 py-2.5 border-t flex gap-2">
+                    <button onClick={() => setTplForParams(null)} className="btn-secondary flex-1 text-sm">Back</button>
+                    <button
+                      onClick={() => sendTemplate(tplForParams.name, tplForParams.language, tplForParams.id, tplParamVals)}
+                      disabled={sendingTpl === tplForParams.id}
+                      className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+                      {sendingTpl === tplForParams.id
+                        ? <Loader2 size={14} className="animate-spin" />
+                        : <Send size={14} />} Send
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* ── Template list ── */
+                <>
+                  <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+                    <p className="text-sm font-semibold text-gray-700">Select a Template</p>
+                    <button onClick={() => setShowTemplates(false)}><X size={16} className="text-gray-400 hover:text-gray-600" /></button>
+                  </div>
+                  <div className="max-h-52 overflow-y-auto divide-y divide-gray-50">
+                    {templates.length === 0
+                      ? <p className="text-center text-xs text-gray-400 py-6">No approved templates</p>
+                      : templates.map((t) => {
+                          const varCount = extractVarCount(t.body_text);
+                          return (
+                            <button key={t.id}
+                              onClick={() => {
+                                if (varCount > 0) {
+                                  setTplForParams(t);
+                                  setTplParamVals(Array(varCount).fill(''));
+                                } else {
+                                  sendTemplate(t.name, t.language, t.id);
+                                }
+                              }}
+                              disabled={sendingTpl === t.id}
+                              className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors disabled:opacity-50">
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm font-semibold text-gray-800">{t.name}</p>
+                                {sendingTpl === t.id
+                                  ? <Loader2 size={14} className="animate-spin text-gray-400" />
+                                  : varCount > 0
+                                    ? <span className="text-[10px] text-blue-400 font-medium">{varCount} vars</span>
+                                    : <Send size={13} className="text-gray-300" />}
+                              </div>
+                              <p className="text-xs text-gray-400 mt-0.5 truncate">{t.body_text}</p>
+                            </button>
+                          );
+                        })}
+                  </div>
+                </>
+              )}
             </div>
           )}
 

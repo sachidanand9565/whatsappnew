@@ -10,15 +10,21 @@ import { RowDataPacket } from 'mysql2';
 
 type Params = { params: { id: string } };
 
+const VALID_STATUSES = ['all', 'sent', 'delivered', 'read', 'failed', 'pending', 'replied'];
+
 export async function GET(req: NextRequest, { params }: Params) {
   try {
     const payload    = requireAuth(req);
     const campaignId = Number(params.id);
     const url        = new URL(req.url);
-    const status     = url.searchParams.get('status') || 'all';   // all|sent|delivered|read|failed|pending
-    const page       = Number(url.searchParams.get('page') || 1);
-    const limit      = Number(url.searchParams.get('limit') || 50);
-    const offset     = (page - 1) * limit;
+
+    const rawStatus = url.searchParams.get('status') || 'all';
+    const status    = VALID_STATUSES.includes(rawStatus) ? rawStatus : 'all';
+    const page      = Math.max(1, Number(url.searchParams.get('page') || 1));
+    const limit     = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') || 50)));
+    const offset    = (page - 1) * limit;
+    const dateFrom  = url.searchParams.get('dateFrom') || null;
+    const dateTo    = url.searchParams.get('dateTo')   || null;
 
     // ── Campaign row ────────────────────────────────────────
     const camps = await query<RowDataPacket[]>(
@@ -32,19 +38,22 @@ export async function GET(req: NextRequest, { params }: Params) {
     if (camps.length === 0) return apiError('Campaign not found', 404);
     const campaign = camps[0];
 
-    // ── Per-status counts (use campaigns table directly — always accurate) ──
-    const counts: Record<string, number> = {
-      sent:      Number(campaign.sent_count      || 0),
-      delivered: Number(campaign.delivered_count || 0),
-      read:      Number(campaign.read_count      || 0),
-      failed:    Number(campaign.failed_count    || 0),
-      pending:   Math.max(0, Number(campaign.total_contacts || 0) - Number(campaign.sent_count || 0) - Number(campaign.failed_count || 0)),
-      replied:   0,
-    };
+    // ── Accurate counts from campaign_contacts ──────────────
+    const countRows = await query<RowDataPacket[]>(
+      `SELECT
+        COALESCE(SUM(status IN ('sent','delivered','read')), 0) AS sent,
+        COALESCE(SUM(status IN ('delivered','read')),        0) AS delivered,
+        COALESCE(SUM(status = 'read'),                       0) AS \`read\`,
+        COALESCE(SUM(status = 'failed'),                     0) AS failed,
+        COALESCE(SUM(status = 'pending'),                    0) AS pending
+       FROM campaign_contacts
+       WHERE campaign_id = ?`,
+      [campaignId]
+    );
 
-    // ── Reply count (inbound messages from campaign contacts after campaign start) ──
+    // ── Reply count ─────────────────────────────────────────
     const replyRows = await query<RowDataPacket[]>(
-      `SELECT COUNT(DISTINCT m.contact_id) as replied
+      `SELECT COUNT(DISTINCT m.contact_id) AS replied
        FROM messages m
        INNER JOIN campaign_contacts cc ON cc.contact_id = m.contact_id AND cc.campaign_id = ?
        WHERE m.direction = 'inbound'
@@ -52,63 +61,107 @@ export async function GET(req: NextRequest, { params }: Params) {
          AND m.created_at >= (SELECT COALESCE(started_at, created_at) FROM campaigns WHERE id = ?)`,
       [campaignId, payload.workspaceId, campaignId]
     );
-    counts.replied = Number(replyRows[0]?.replied || 0);
 
-    // ── Daily messages chart (last 7 days) ──────────────────
+    const counts = {
+      sent:      Number(countRows[0]?.sent      || 0),
+      delivered: Number(countRows[0]?.delivered || 0),
+      read:      Number(countRows[0]?.read      || 0),
+      failed:    Number(countRows[0]?.failed    || 0),
+      pending:   Number(countRows[0]?.pending   || 0),
+      replied:   Number(replyRows[0]?.replied   || 0),
+    };
+
+    // ── Daily chart — per-status counts per day ─────────────
+    const chartFrom = dateFrom || (() => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().split('T')[0]; })();
+    const chartTo   = dateTo   || new Date().toISOString().split('T')[0];
+
     const daily = await query<RowDataPacket[]>(
-      `SELECT DATE(m.sent_at) as date, COUNT(*) as sent
-       FROM messages m
-       WHERE m.campaign_id = ? AND m.sent_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-       GROUP BY DATE(m.sent_at)
+      `SELECT
+         DATE(cc.sent_at)                                            AS date,
+         COALESCE(SUM(cc.status IN ('sent','delivered','read')), 0)  AS sent,
+         COALESCE(SUM(cc.status IN ('delivered','read')),        0)  AS delivered,
+         COALESCE(SUM(cc.status = 'read'),                       0)  AS \`read\`,
+         COALESCE(SUM(cc.status = 'failed'),                     0)  AS failed
+       FROM campaign_contacts cc
+       WHERE cc.campaign_id = ? AND cc.sent_at BETWEEN ? AND ?
+       GROUP BY DATE(cc.sent_at)
        ORDER BY date ASC`,
-      [campaignId]
+      [campaignId, chartFrom, `${chartTo} 23:59:59`]
     );
+    // MySQL SUM() returns strings — convert to numbers for recharts
+    const dailyNorm = daily.map(r => ({
+      date:      String(r.date).split('T')[0],   // keep YYYY-MM-DD
+      sent:      Number(r.sent      || 0),
+      delivered: Number(r.delivered || 0),
+      read:      Number(r.read      || 0),
+      failed:    Number(r.failed    || 0),
+    }));
 
-    // ── Contact list ────────────────────────────────────────
+    // ── Build status clause (safe — no string interpolation of user input) ──
     const isRepliedFilter = status === 'replied';
-    const whereStatus     = !isRepliedFilter && status !== 'all'
-      ? status === 'sent'
-        ? `AND cc.status IN ('sent', 'delivered', 'read')`
-        : `AND cc.status = '${status}'`
-      : '';
-    const repliedJoin     = `LEFT JOIN (
+    let statusClause = '';
+    const statusParams: (string | number)[] = [];
+
+    if (!isRepliedFilter && status !== 'all') {
+      if (status === 'sent') {
+        // Sent tab = all successfully dispatched (sent + delivered + read), never failed
+        statusClause = `AND cc.status IN ('sent','delivered','read')`;
+      } else if (status === 'delivered') {
+        // Delivered tab = delivered + read (progressive states)
+        statusClause = `AND cc.status IN ('delivered','read')`;
+      } else {
+        statusClause = `AND cc.status = ?`;
+        statusParams.push(status);
+      }
+    }
+
+    // ── Date clause ─────────────────────────────────────────
+    let dateClause = '';
+    const dateParams_: (string | number)[] = [];
+    if (dateFrom && dateTo) {
+      dateClause = `AND cc.sent_at BETWEEN ? AND ?`;
+      dateParams_.push(dateFrom, `${dateTo} 23:59:59`);
+    }
+
+    // ── Replied join ────────────────────────────────────────
+    const repliedJoin = `LEFT JOIN (
       SELECT DISTINCT m2.contact_id
       FROM messages m2
       INNER JOIN campaign_contacts cc2 ON cc2.contact_id = m2.contact_id AND cc2.campaign_id = ?
       WHERE m2.direction = 'inbound' AND m2.workspace_id = ?
         AND m2.created_at >= (SELECT COALESCE(started_at, created_at) FROM campaigns WHERE id = ?)
     ) replied_contacts ON replied_contacts.contact_id = cc.contact_id`;
-    const repliedFilter   = isRepliedFilter ? 'AND replied_contacts.contact_id IS NOT NULL' : '';
+    const repliedFilter = isRepliedFilter ? 'AND replied_contacts.contact_id IS NOT NULL' : '';
 
+    // ── Contact list ────────────────────────────────────────
     const contacts = await query<RowDataPacket[]>(
       `SELECT cc.id, cc.status, cc.error, cc.sent_at,
-              COALESCE(c.name, c.phone) as name, c.phone,
+              COALESCE(c.name, c.phone) AS name, c.phone,
               m.wamid,
-              (replied_contacts.contact_id IS NOT NULL) as has_replied
+              (replied_contacts.contact_id IS NOT NULL) AS has_replied
        FROM campaign_contacts cc
        JOIN contacts c ON c.id = cc.contact_id
        LEFT JOIN messages m ON m.id = cc.message_id
        ${repliedJoin}
-       WHERE cc.campaign_id = ? ${whereStatus} ${repliedFilter}
+       WHERE cc.campaign_id = ? ${statusClause} ${dateClause} ${repliedFilter}
        ORDER BY cc.sent_at DESC, cc.id DESC
        LIMIT ? OFFSET ?`,
-      [campaignId, payload.workspaceId, campaignId, campaignId, limit, offset]
+      [campaignId, payload.workspaceId, campaignId, campaignId, ...statusParams, ...dateParams_, limit, offset]
     );
 
-    // Total for pagination
     const totalRows = await query<RowDataPacket[]>(
-      `SELECT COUNT(*) as total
+      `SELECT COUNT(*) AS total
        FROM campaign_contacts cc
        ${repliedJoin}
-       WHERE cc.campaign_id = ? ${whereStatus} ${repliedFilter}`,
-      [campaignId, payload.workspaceId, campaignId, campaignId]
+       WHERE cc.campaign_id = ? ${statusClause} ${dateClause} ${repliedFilter}`,
+      [campaignId, payload.workspaceId, campaignId, campaignId, ...statusParams, ...dateParams_]
     );
     const total = Number(totalRows[0]?.total || 0);
 
     return apiSuccess({
       campaign,
       counts,
-      daily,
+      daily: dailyNorm,
       contacts,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     });
@@ -125,7 +178,6 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     const campaignId = Number(params.id);
     if (!campaignId || isNaN(campaignId)) return apiError('Invalid id', 400);
 
-    // Verify ownership
     const rows = await query<RowDataPacket[]>(
       'SELECT id, status FROM campaigns WHERE id = ? AND workspace_id = ? LIMIT 1',
       [campaignId, payload.workspaceId]
@@ -136,7 +188,6 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       return apiError('Cannot delete a running campaign. Wait for it to complete.', 409);
     }
 
-    // Delete child rows first (FK), then the campaign
     await execute('DELETE FROM campaign_contacts WHERE campaign_id = ?', [campaignId]);
     await execute('DELETE FROM campaigns WHERE id = ? AND workspace_id = ?', [campaignId, payload.workspaceId]);
 
