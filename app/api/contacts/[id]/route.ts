@@ -33,10 +33,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const body = await req.json();
     const { name, email, city, source, status, tags, notes, opted_in, chat_status, transfer_to_id, reset_unread } = body;
 
-    // Reset unread count when agent opens the chat
+    // Mark chat as read — store server-side timestamp so all devices stay in sync
     if (reset_unread) {
       await execute(
-        'UPDATE contacts SET unread_count = 0 WHERE id = ? AND workspace_id = ?',
+        'UPDATE contacts SET last_read_at = UTC_TIMESTAMP() WHERE id = ? AND workspace_id = ?',
         [params.id, payload.workspaceId]
       );
       return apiSuccess({ updated: true });

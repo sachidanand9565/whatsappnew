@@ -62,11 +62,7 @@ export async function GET(req: NextRequest) {
         (SELECT u.name FROM users u WHERE u.id = c.assigned_agent_id LIMIT 1) AS assigned_agent_name,
         (SELECT COUNT(*) FROM messages m
          WHERE m.contact_id = c.id AND m.direction = 'inbound'
-           AND m.id > COALESCE(
-             (SELECT MAX(m2.id) FROM messages m2
-              WHERE m2.contact_id = c.id AND m2.direction = 'outbound'),
-             0
-           )
+           AND m.created_at > COALESCE(c.last_read_at, '2000-01-01 00:00:00')
         ) AS unread_count,
         (SELECT COUNT(*) FROM messages mi
          WHERE mi.contact_id = c.id AND mi.direction = 'inbound'

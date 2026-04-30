@@ -569,14 +569,6 @@ export default function InboxPage() {
     localStorage.setItem('unreadCounts', JSON.stringify(counts));
   };
 
-  // Timestamp of when each contact's chat was last opened (read watermark).
-  // Persisted across refreshes so badge stays 0 for messages already seen.
-  const readTimesRef = useRef<Record<number, number>>(
-    typeof window !== 'undefined'
-      ? (() => { try { return JSON.parse(localStorage.getItem('readTimes') || '{}'); } catch { return {}; } })()
-      : {}
-  );
-
   const loadContacts = useCallback(() => {
     setContactsLoading(true);
     apiFetch('/api/contacts?limit=200&chatStatus=inbox').then((r) => {
@@ -588,17 +580,11 @@ export default function InboxPage() {
           if (selectedRef.current?.id === c.id) {
             next[c.id] = 0; // Always 0 for the currently open chat
           } else {
-            const dbCount     = Number(c.unread_count) || 0;
-            const local       = prev[c.id] ?? 0;
-            const readTime    = readTimesRef.current[c.id] || 0;
-            const lastMsgTime = c.last_message_at ? toLocalDate(c.last_message_at).getTime() : 0;
-            // If no new message has arrived since we last opened this chat, keep badge 0.
-            // Otherwise fall back to Math.max so genuinely new messages are shown.
-            if (readTime > 0 && lastMsgTime <= readTime + 2000) {
-              next[c.id] = local; // local may be > 0 if SSE incremented it after we read
-            } else {
-              next[c.id] = Math.max(local, dbCount);
-            }
+            // dbCount is now server-authoritative (based on last_read_at in DB)
+            // Use it directly — works across all devices and browsers
+            const dbCount = Number(c.unread_count) || 0;
+            const local   = prev[c.id] ?? 0;
+            next[c.id] = Math.max(local, dbCount);
           }
         });
         saveUnread(next);
@@ -724,9 +710,8 @@ export default function InboxPage() {
       saveUnread(next);
       return next;
     });
-    // Persist read watermark so badge stays 0 after page refresh (for already-read messages)
-    readTimesRef.current[c.id] = Date.now();
-    try { localStorage.setItem('readTimes', JSON.stringify(readTimesRef.current)); } catch { /**/ }
+    // Server-side read: updates last_read_at in DB (syncs across all devices)
+    apiFetch(`/api/contacts/${c.id}`, { method: 'PUT', body: JSON.stringify({ reset_unread: true }) }).catch(() => {});
     // Send WhatsApp read receipts so user sees blue ticks on their end
     apiFetch('/api/messages/read', { method: 'POST', body: JSON.stringify({ contactId: c.id }) }).catch(() => {});
   }
