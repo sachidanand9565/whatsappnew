@@ -1,8 +1,3 @@
-/**
- * lib/db.ts
- * MySQL connection pool using mysql2/promise
- * Uses connection pooling for production performance
- */
 import mysql from 'mysql2/promise';
 
 declare global {
@@ -21,19 +16,22 @@ function createPool(): mysql.Pool {
     password:           process.env.DB_PASSWORD,
     database:           process.env.DB_NAME,
     waitForConnections: true,
-    connectionLimit:    5,   // lower limit for serverless (Vercel)
+    connectionLimit:    5,
     queueLimit:         0,
     charset:            'utf8mb4',
-    timezone:           'Z',         // session timezone = UTC
-    dateStrings:        true,        // return datetime as strings, not Date objects
+    timezone:           'Z',
+    dateStrings:        true,
   });
 }
 
-// Singleton pool to avoid exhausting connections in dev (HMR)
-const pool: mysql.Pool = global._mysqlPool ?? createPool();
-if (process.env.NODE_ENV !== 'production') global._mysqlPool = pool;
-
-export default pool;
+// Lazy singleton — pool is created only on the first actual query, not at import time.
+// This prevents Vercel build failures when DB env vars are not present during static analysis.
+function getPool(): mysql.Pool {
+  if (!global._mysqlPool) {
+    global._mysqlPool = createPool();
+  }
+  return global._mysqlPool;
+}
 
 // ---- helper: run a query and return rows typed as T ----
 export async function query<T = mysql.RowDataPacket[]>(
@@ -41,20 +39,20 @@ export async function query<T = mysql.RowDataPacket[]>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   params?: any[]
 ): Promise<T> {
-  const [rows] = await pool.execute(sql, params);
+  const [rows] = await getPool().execute(sql, params);
   return rows as T;
 }
 
 // ---- helper: run INSERT and return insertId ----
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function insert(sql: string, params?: any[]): Promise<number> {
-  const [result] = await pool.execute(sql, params);
+  const [result] = await getPool().execute(sql, params);
   return (result as mysql.ResultSetHeader).insertId;
 }
 
 // ---- helper: run UPDATE/DELETE and return affectedRows ----
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function execute(sql: string, params?: any[]): Promise<number> {
-  const [result] = await pool.execute(sql, params);
+  const [result] = await getPool().execute(sql, params);
   return (result as mysql.ResultSetHeader).affectedRows;
 }
