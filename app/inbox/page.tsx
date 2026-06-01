@@ -40,6 +40,7 @@ interface MediaContent {
   filename?: string;
   caption?: string;
   workspace_id: number;
+  voice?: boolean;
 }
 function parseMediaContent(content: string): MediaContent | null {
   try {
@@ -55,14 +56,16 @@ function MediaBubble({ data, msgType }: { data: MediaContent; msgType: string })
   const isAudio = msgType === 'audio';
   const isVideo = msgType === 'video';
   const isDoc   = msgType === 'document';
+  const isSticker = msgType === 'sticker';
+  const isVoice = isAudio && (data.voice || data.mime_type?.includes('audio/ogg') || data.mime_type?.includes('opus'));
 
   return (
     <div className="max-w-xs">
-      {isImage && (
+      {(isImage || isSticker) && (
         <img
           src={src}
-          alt={data.caption || 'Image'}
-          className="rounded-xl max-w-full max-h-64 object-cover"
+          alt={data.caption || (isSticker ? 'Sticker' : 'Image')}
+          className={isSticker ? "max-w-[120px] max-h-[120px] object-contain my-1" : "rounded-xl max-w-full max-h-64 object-cover"}
           loading="lazy"
         />
       )}
@@ -74,9 +77,18 @@ function MediaBubble({ data, msgType }: { data: MediaContent; msgType: string })
         />
       )}
       {isAudio && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-white/50 rounded-xl">
-          <Music size={16} className="text-gray-500 flex-shrink-0" />
-          <audio src={src} controls className="h-8 w-48" />
+        <div className="flex items-center gap-2 px-3 py-2 bg-black/5 rounded-xl border border-black/5">
+          {isVoice ? (
+            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+              <span className="text-sm shrink-0">🎤</span>
+            </div>
+          ) : (
+            <Music size={16} className="text-slate-500 flex-shrink-0" />
+          )}
+          <div className="flex flex-col min-w-0">
+            {isVoice && <span className="text-[10px] text-slate-400 font-bold tracking-wider uppercase mb-0.5">Voice Note</span>}
+            <audio src={src} controls className="h-8 w-44 shrink-0" />
+          </div>
         </div>
       )}
       {isDoc && (
@@ -85,15 +97,15 @@ function MediaBubble({ data, msgType }: { data: MediaContent; msgType: string })
           download={data.filename || 'document'}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-2 px-3 py-2 bg-white/50 rounded-xl hover:bg-white/80 transition-colors"
+          className="flex items-center gap-2 px-3 py-2 bg-black/5 rounded-xl border border-black/5 hover:bg-black/10 transition-colors"
         >
-          <FileText size={16} className="text-gray-500 flex-shrink-0" />
-          <span className="text-sm text-gray-700 truncate max-w-[180px]">{data.filename || 'Document'}</span>
-          <Download size={14} className="text-gray-400 flex-shrink-0 ml-auto" />
+          <FileText size={16} className="text-slate-500 flex-shrink-0" />
+          <span className="text-sm text-slate-700 truncate max-w-[180px]">{data.filename || 'Document'}</span>
+          <Download size={14} className="text-slate-400 flex-shrink-0 ml-auto" />
         </a>
       )}
       {data.caption && (
-        <p className="text-xs text-gray-600 mt-1 px-1 break-words">{data.caption}</p>
+        <p className="text-xs text-slate-600 mt-1 px-1 break-words">{data.caption}</p>
       )}
     </div>
   );
@@ -540,6 +552,8 @@ export default function InboxPage() {
   }
   const bottomRef                           = useRef<HTMLDivElement>(null);
   const chatRef                             = useRef<HTMLDivElement>(null);
+  const lastContactIdRef                    = useRef<number | null>(null);
+  const shouldScrollRef                     = useRef<boolean>(false);
 
   // Intervened filter state
   const [intervenedFilter, setIntervenedFilter]         = useState<'me' | 'any' | 'other' | number>('me');
@@ -569,8 +583,8 @@ export default function InboxPage() {
     localStorage.setItem('unreadCounts', JSON.stringify(counts));
   };
 
-  const loadContacts = useCallback(() => {
-    setContactsLoading(true);
+  const loadContacts = useCallback((silent = false) => {
+    if (!silent) setContactsLoading(true);
     apiFetch('/api/contacts?limit=200&chatStatus=inbox').then((r) => {
       const list: Contact[] = r.data?.data || [];
       setContacts(list);
@@ -590,7 +604,9 @@ export default function InboxPage() {
         saveUnread(next);
         return next;
       });
-    }).finally(() => setContactsLoading(false));
+    }).finally(() => {
+      if (!silent) setContactsLoading(false);
+    });
   }, []);
 
   // Load all intervened contacts for admin/manager (bypasses inbox assignment restriction)
@@ -602,9 +618,9 @@ export default function InboxPage() {
   }, [currentUserRole]);
 
   useEffect(() => {
-    loadContacts();
+    loadContacts(false);
     loadIntervenedContacts();
-    const iv = setInterval(() => { loadContacts(); loadIntervenedContacts(); }, 60_000);
+    const iv = setInterval(() => { loadContacts(true); loadIntervenedContacts(); }, 60_000);
     return () => clearInterval(iv);
   }, [loadContacts, loadIntervenedContacts]);
 
@@ -644,7 +660,7 @@ export default function InboxPage() {
           };
 
           if (data.type === 'new_message') {
-            loadContacts();
+            loadContacts(true);
             loadIntervenedContacts();
             if (selectedRef.current?.id === data.contactId) {
               loadMessages(data.contactId!);
@@ -662,7 +678,7 @@ export default function InboxPage() {
               ));
             }
           } else if (data.type === 'chat_status_update' && data.contactId && data.chatStatus) {
-            loadContacts();
+            loadContacts(true);
             loadIntervenedContacts();
             if (selectedRef.current?.id === data.contactId) {
               setSelected(prev => prev ? { ...prev, chat_status: data.chatStatus as Contact['chat_status'] } : prev);
@@ -705,6 +721,8 @@ export default function InboxPage() {
 
   function selectContact(c: Contact) {
     setSelected(c);
+    lastContactIdRef.current = c.id;
+    shouldScrollRef.current = true;
     setUnreadCounts(prev => {
       const next = { ...prev, [c.id]: 0 };
       saveUnread(next);
@@ -722,11 +740,22 @@ export default function InboxPage() {
   }, [selected, loadMessages]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (!selected) return;
+    const container = chatRef.current;
+    let nearBottom = true;
+    if (container) {
+      nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 250;
+    }
+    if (shouldScrollRef.current || nearBottom || lastContactIdRef.current !== selected.id) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      shouldScrollRef.current = false;
+    }
+    lastContactIdRef.current = selected.id;
+  }, [messages, selected]);
 
   async function sendMessage() {
     if (!text.trim() || !selected) return;
+    shouldScrollRef.current = true;
     setSending(true);
     const msgText = text;
     setText('');
@@ -761,6 +790,7 @@ export default function InboxPage() {
 
   async function sendTemplate(templateName: string, language: string, tplId: number, params: string[] = []) {
     if (!selected) return;
+    shouldScrollRef.current = true;
     setSendingTpl(tplId);
     try {
       await apiFetch('/api/send-message', {
@@ -1280,7 +1310,7 @@ export default function InboxPage() {
               const isNewSession  = !!(prevMsg?.content?.startsWith('Closed by '));
 
               // System message — centered badge
-              const isSystemMsg = m.type === 'system' ||
+              const isSystemMsg = m.type === 'system' || m.type === 'reaction' ||
                 (m.content?.startsWith('Intervened by ') || m.content?.startsWith('Closed by ') ||
                  m.content?.startsWith('Reopened by ')   || m.content?.startsWith('Transferred to '));
               if (isSystemMsg) {
@@ -1356,6 +1386,16 @@ export default function InboxPage() {
                           <LocationBubble data={location} />
                         ) : contacts ? (
                           <ContactsBubble data={contacts} />
+                        ) : m.content && (m.content.includes('Unsupported message type') || m.content.includes('Message type not supported')) ? (
+                          <div className="flex items-start gap-2 p-1.5 bg-amber-50/70 border border-amber-200/50 rounded-xl my-0.5 max-w-[280px]">
+                            <span className="text-amber-500 text-sm shrink-0 leading-none mt-0.5">⚠️</span>
+                            <div>
+                              <p className="font-bold text-xs text-amber-800 leading-tight">Unsupported Event</p>
+                              <p className="text-[10px] text-amber-600/90 leading-snug mt-0.5">
+                                This message type (e.g. poll creation/vote, WhatsApp voice/video call) is not supported by Meta's Cloud API.
+                              </p>
+                            </div>
+                          </div>
                         ) : (
                           <p className="break-words whitespace-pre-wrap leading-relaxed">{m.content}</p>
                         )}

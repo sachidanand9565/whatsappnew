@@ -1,12 +1,7 @@
-/**
- * POST /api/campaigns/[id]/launch
- * Start sending campaign messages (bulk send with rate limiting)
- */
 import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import { query, execute, insert } from '@/lib/db';
-import { sendTemplateMessage } from '@/lib/whatsapp';
-import { apiSuccess, apiError, sleep, WA_RATE_LIMIT_MS, utcNow } from '@/lib/utils';
+import { query, execute } from '@/lib/db';
+import { apiSuccess, apiError, utcNow } from '@/lib/utils';
 import { RowDataPacket } from 'mysql2';
 
 type Params = { params: { id: string } };
@@ -43,109 +38,19 @@ export async function POST(req: NextRequest, { params }: Params) {
     // Mark as running
     await execute('UPDATE campaigns SET status = ?, started_at = ? WHERE id = ?', ['running', utcNow(), campaignId]);
 
-    // Get pending contacts
-    const contacts = await query<RowDataPacket[]>(
-      `SELECT cc.contact_id, c.phone, cc.id as cc_id
-       FROM campaign_contacts cc
-       JOIN contacts c ON c.id = cc.contact_id
-       WHERE cc.campaign_id = ? AND cc.status = 'pending'`,
+    // Get pending contacts count
+    const stats = await query<RowDataPacket[]>(
+      `SELECT COUNT(*) as pending_count
+       FROM campaign_contacts
+       WHERE campaign_id = ? AND status = 'pending'`,
       [campaignId]
     );
+    const total = stats[0]?.pending_count || 0;
 
-    // Send in background — don't await, return immediately
-    sendBulk(
-      campaignId,
-      payload.workspaceId,
-      camp,
-      contacts as { contact_id: number; phone: string; cc_id: number }[]
-    ).catch((e) => console.error('[bulk send error]', e));
-
-    return apiSuccess({ message: `Sending to ${contacts.length} contacts`, total: contacts.length });
+    return apiSuccess({ message: `Campaign queued for sending to ${total} contacts.`, total });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === 'UNAUTHORIZED') return apiError('Unauthorized', 401);
     console.error('[launch]', err);
     return apiError('Server error', 500);
   }
-}
-
-async function sendBulk(
-  campaignId: number,
-  workspaceId: number,
-  camp: RowDataPacket,
-  contacts: { contact_id: number; phone: string; cc_id: number }[]
-) {
-  let sentCount = 0;
-  let failedCount = 0;
-
-  for (const contact of contacts) {
-    try {
-      const result = await sendTemplateMessage(
-        camp.access_token as string,
-        camp.phone_number_id as string,
-        contact.phone,
-        camp.tname as string,
-        camp.language as string,
-        buildComponents(camp)
-      );
-
-      const wamid = (result?.messages as Record<string, unknown>[])?.[0]?.id as string;
-
-      // Build rendered body with variables replaced
-      let bodyText = (camp.body_text as string) || '';
-      const vars = (camp.template_vars as Record<string, string>) || {};
-      for (const [k, v] of Object.entries(vars)) {
-        bodyText = bodyText.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v);
-      }
-      let buttons: unknown[] = [];
-      try { buttons = JSON.parse((camp.buttons as string) || '[]'); } catch { buttons = []; }
-
-      const templateContent = JSON.stringify({
-        __type:         'template',
-        template_name:  camp.tname,
-        header_type:    camp.header_type    || 'NONE',
-        header_content: camp.header_content || '',
-        body:           bodyText,
-        footer:         camp.footer_text    || '',
-        buttons,
-      });
-
-      // Store message
-      const t = utcNow();
-      const msgId = await insert(
-        `INSERT INTO messages (workspace_id, contact_id, wamid, direction, type, content, campaign_id, status, sent_at, created_at)
-         VALUES (?, ?, ?, 'outbound', 'template', ?, ?, 'sent', ?, ?)`,
-        [workspaceId, contact.contact_id, wamid, templateContent, campaignId, t, t]
-      );
-
-      await execute(
-        'UPDATE campaign_contacts SET status = ?, message_id = ?, sent_at = ? WHERE id = ?',
-        ['sent', msgId, t, contact.cc_id]
-      );
-      sentCount++;
-    } catch (err) {
-      console.error(`[bulk] failed for ${contact.phone}`, err);
-      await execute(
-        'UPDATE campaign_contacts SET status = ?, error = ? WHERE id = ?',
-        ['failed', String(err), contact.cc_id]
-      );
-      failedCount++;
-    }
-
-    await sleep(WA_RATE_LIMIT_MS); // respect rate limit
-  }
-
-  const finalStatus = contacts.length > 0 && failedCount === contacts.length ? 'failed' : 'completed';
-  await execute(
-    `UPDATE campaigns SET status = ?, completed_at = ?,
-     sent_count = ?, failed_count = ? WHERE id = ?`,
-    [finalStatus, utcNow(), sentCount, failedCount, campaignId]
-  );
-}
-
-function buildComponents(camp: RowDataPacket): object[] {
-  // Build body component from template_vars
-  const vars = (camp.template_vars as Record<string, string>) || {};
-  const params = Object.values(vars).map((v) => ({ type: 'text', text: v }));
-  if (params.length === 0) return [];
-  return [{ type: 'body', parameters: params }];
 }

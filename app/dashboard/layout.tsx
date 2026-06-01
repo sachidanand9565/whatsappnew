@@ -7,7 +7,7 @@ import {
   LayoutDashboard, MessageSquare, Users, Megaphone,
   FileText, Bot, BarChart3, Settings, LogOut, Menu, X,
   History, CreditCard, UserCog, ChevronRight, Plus, Check,
-  Headphones,
+  Headphones, Zap,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -23,6 +23,7 @@ const ALL_NAV = [
   { label: 'Campaigns',  href: '/campaigns',    icon: Megaphone,       roles: ['admin','manager','agent'] },
   { label: 'Templates',  href: '/templates',    icon: FileText,        roles: ['admin','manager'] },
   { label: 'Chatbot',    href: '/chatbot',      icon: Bot,             roles: ['admin'] },
+  { label: 'Flows',      href: '/flows',        icon: Zap,             roles: ['admin'] },
   { label: 'Analytics',  href: '/analytics',    icon: BarChart3,       roles: ['admin','manager'] },
   { label: 'Agents',     href: '/agents',       icon: UserCog,         roles: ['admin'] },
   { label: 'Billing',    href: '/billing',      icon: CreditCard,      roles: ['admin'] },
@@ -151,67 +152,70 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800">
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-16 bg-[#071a0a] text-white flex flex-col
+        fixed inset-y-0 left-0 z-50 w-20 bg-gradient-to-b from-[#021f12] via-[#05110a] to-[#010804] text-white flex flex-col border-r border-white/5 shadow-2xl
         transform transition-transform duration-200
         ${open ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 lg:static lg:inset-auto
       `}>
         {/* Logo */}
-        <div className="flex items-center justify-center py-3 border-b border-white/10">
-          <Image src="/logo.png" alt="SK WEBTECH" width={44} height={44} className="h-12 w-auto" />
-          <button className="absolute right-2 lg:hidden" onClick={() => setOpen(false)}>
+        <div className="flex flex-col items-center justify-center py-5 border-b border-white/5 relative">
+          <div className="relative group">
+            <div className="absolute -inset-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full blur opacity-30 group-hover:opacity-75 transition duration-500" />
+            <Image src="/logo.png" alt="SK WEBTECH" width={48} height={48} className="relative h-12 w-auto object-contain transition-transform group-hover:scale-105" />
+          </div>
+          <button className="absolute right-2 top-2 lg:hidden text-white/50 hover:text-white" onClick={() => setOpen(false)}>
             <X size={16} />
           </button>
         </div>
 
         {/* Project Switcher */}
-        <div ref={switcherRef} className="relative flex items-center justify-center py-3 border-b border-white/10">
+        <div ref={switcherRef} className="relative flex flex-col items-center justify-center py-4 border-b border-white/5">
           <button
             onClick={() => setShowSwitcher((v) => !v)}
             title={currentWs?.name || 'Projects'}
-            className="flex flex-col items-center gap-1 group"
+            className="flex flex-col items-center gap-1.5 group focus:outline-none"
           >
-            <div className="w-8 h-8 rounded-lg bg-green-700 flex items-center justify-center text-white font-bold text-sm group-hover:opacity-80 transition-opacity">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-bold text-base shadow-[0_4px_12px_rgba(16,185,129,0.25)] group-hover:shadow-[0_4px_20px_rgba(16,185,129,0.5)] transition-all transform group-hover:scale-105">
               {currentWs ? currentWs.name.charAt(0).toUpperCase() : '?'}
             </div>
-            <span className="text-[8px] text-white/60 leading-none max-w-[48px] truncate">
+            <span className="text-[10px] text-white/40 leading-none max-w-[64px] truncate font-medium group-hover:text-white transition-colors mt-1">
               {currentWs?.name || 'Project'}
             </span>
           </button>
 
           {showSwitcher && (
-            <div className="absolute left-full ml-2 top-0 z-50 w-56 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase px-3 pt-3 pb-1 tracking-wider">Your Projects</p>
-              <ul className="max-h-60 overflow-y-auto">
+            <div className="absolute left-full ml-3 top-0 z-50 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-left-2 duration-200">
+              <p className="text-[10px] font-bold text-slate-450 uppercase px-4 pt-4 pb-2 tracking-wider">Your Projects</p>
+              <ul className="max-h-60 overflow-y-auto px-2 pb-2 space-y-1">
                 {workspaces.map((ws) => (
                   <li key={ws.id}>
                     <button
                       onClick={() => switchWorkspace(ws)}
                       disabled={switching}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors ${ws.id === currentWs?.id ? 'bg-green-50' : ''}`}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-slate-50 transition-all ${ws.id === currentWs?.id ? 'bg-emerald-50 border border-emerald-100' : 'border border-transparent'}`}
                     >
-                      <div className="w-7 h-7 rounded-md bg-green-700 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                         {ws.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">{ws.name}</p>
-                        {ws.plan && <p className="text-[10px] text-gray-400 truncate">{ws.plan}</p>}
+                        <p className="text-sm font-semibold text-slate-800 truncate">{ws.name}</p>
+                        {ws.plan && <p className="text-[10px] text-slate-400 font-medium truncate">{ws.plan.toUpperCase()}</p>}
                       </div>
-                      {ws.id === currentWs?.id && <Check size={14} className="text-green-600 flex-shrink-0" />}
-                      {ws.id !== currentWs?.id && <ChevronRight size={14} className="text-gray-300 flex-shrink-0" />}
+                      {ws.id === currentWs?.id && <Check size={14} className="text-emerald-600 flex-shrink-0" />}
+                      {ws.id !== currentWs?.id && <ChevronRight size={14} className="text-slate-400 flex-shrink-0" />}
                     </button>
                   </li>
                 ))}
               </ul>
-              <div className="border-t border-gray-100">
+              <div className="border-t border-slate-100 bg-slate-50/50 p-2">
                 <button
                   onClick={() => { setShowSwitcher(false); setShowNewModal(true); }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-green-600 font-medium hover:bg-green-50 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm text-emerald-600 bg-white border border-slate-200 font-semibold shadow-sm hover:bg-slate-50 transition-colors"
                 >
-                  <Plus size={16} />
+                  <Plus size={15} />
                   New Project
                 </button>
               </div>
@@ -220,32 +224,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 py-2 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+        <nav className="flex-1 py-4 overflow-y-auto space-y-2 px-1.5" style={{ scrollbarWidth: 'none' }}>
           {nav.map(({ label, href, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + '/');
             return (
               <Link
                 key={href} href={href}
                 onClick={() => setOpen(false)}
-                className={`flex flex-col items-center justify-center py-2.5 gap-1 transition-colors
+                className={`flex flex-col items-center justify-center py-3.5 gap-1 rounded-xl transition-all relative group
                   ${active
-                    ? 'bg-green-600/20 text-green-300 border-r-2 border-green-400'
-                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                    ? 'bg-emerald-500/10 text-emerald-400 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] border-l-4 border-emerald-400 rounded-l-none'
+                    : 'text-white/40 hover:text-white hover:bg-white/5'
                   }`}
               >
-                <Icon size={18} />
-                <span className="text-[9px] font-medium leading-none">{label}</span>
+                <Icon size={20} className={`transition-transform duration-200 group-hover:scale-105 ${active ? 'text-emerald-400' : 'text-white/40 group-hover:text-white'}`} />
+                <span className="text-[9px] font-semibold leading-none tracking-wide mt-1.5">{label}</span>
               </Link>
             );
           })}
         </nav>
 
         {/* Logout */}
-        <div className="flex items-center justify-center py-4 border-t border-white/10">
+        <div className="flex items-center justify-center py-4 border-t border-white/5">
           <button onClick={logout}
-            className="flex flex-col items-center gap-1 text-white/60 hover:text-red-400 transition-colors">
-            <LogOut size={18} />
-            <span className="text-[9px] font-medium leading-none">Logout</span>
+            className="flex flex-col items-center gap-1.5 text-white/40 hover:text-red-400 transition-colors group">
+            <LogOut size={18} className="group-hover:-translate-x-0.5 transition-transform" />
+            <span className="text-[9px] font-semibold leading-none">Logout</span>
           </button>
         </div>
       </aside>
@@ -257,15 +261,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* New Project Modal */}
       {showNewModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <div className="fixed inset-0 bg-black/55 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">New Project</h3>
-              <button onClick={() => setShowNewModal(false)} className="text-gray-400 hover:text-gray-600">
+              <h3 className="text-lg font-bold text-slate-900">New Project</h3>
+              <button onClick={() => setShowNewModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">Project Name</label>
             <input
               type="text"
               value={newProjectName}
@@ -286,27 +290,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
         {/* Top bar */}
-        <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-3 flex items-center gap-4">
-          <button className="lg:hidden text-gray-600 hover:text-gray-900" onClick={() => setOpen(true)}>
+        <header className="bg-white/85 backdrop-blur-md border-b border-slate-200/50 px-6 py-4 flex items-center gap-4 sticky top-0 z-40">
+          <button className="lg:hidden text-slate-500 hover:text-slate-900 focus:outline-none" onClick={() => setOpen(true)}>
             <Menu size={22} />
           </button>
-          <h2 className="font-semibold text-gray-800 capitalize flex-1">
+          <h2 className="font-bold text-slate-900 text-lg flex-1 tracking-tight">
             {nav.find((n) => pathname.startsWith(n.href))?.label || 'Dashboard'}
           </h2>
           {userName && (
-            <div className="flex items-center gap-2">
-              <span className={`text-[10px] font-semibold text-white px-2 py-0.5 rounded-full capitalize ${roleBadgeColor[role]}`}>
+            <div className="flex items-center gap-3">
+              <span className={`text-[10px] font-bold text-white px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm ${roleBadgeColor[role]}`}>
                 {role}
               </span>
-              <span className="text-sm text-gray-600 hidden sm:block">{userName}</span>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-250 flex items-center justify-center font-bold text-xs">
+                  {userName.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm font-semibold text-slate-700 hidden sm:block">{userName}</span>
+              </div>
             </div>
           )}
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-slate-50/20">
           {children}
         </main>
       </div>

@@ -262,3 +262,93 @@ export function parseWebhookBody(body: Record<string, unknown>): {
   }
   return result;
 }
+
+// ---- Send interactive buttons message (max 3) ----
+export async function sendInteractiveButtons(
+  accessToken:   string,
+  phoneNumberId: string,
+  to:            string,
+  text:          string,
+  buttons:       { text: string }[]
+) {
+  const client = createWAClient(accessToken);
+  const formattedButtons = buttons.slice(0, 3).map((btn, idx) => ({
+    type: 'reply',
+    reply: {
+      id: `btn_${idx}`,
+      title: btn.text.substring(0, 20),
+    }
+  }));
+  const { data } = await client.post(`/${phoneNumberId}/messages`, {
+    messaging_product: 'whatsapp',
+    recipient_type:    'individual',
+    to,
+    type:              'interactive',
+    interactive: {
+      type: 'button',
+      body: { text },
+      action: {
+        buttons: formattedButtons
+      }
+    }
+  });
+  return data;
+}
+
+// ---- Send interactive list message ----
+export async function sendListMessage(
+  accessToken:   string,
+  phoneNumberId: string,
+  to:            string,
+  body:          string,
+  buttonText:    string,
+  sections:      { title: string; rows: { title: string; description?: string }[] }[]
+) {
+  const client = createWAClient(accessToken);
+  const formattedSections = sections.map((sec, secIdx) => ({
+    title: sec.title.substring(0, 24),
+    rows: (sec.rows || []).slice(0, 10).map((row, rowIdx) => ({
+      id: `row_${secIdx}_${rowIdx}`,
+      title: row.title.substring(0, 24),
+      description: row.description ? row.description.substring(0, 72) : undefined,
+    }))
+  }));
+  const { data } = await client.post(`/${phoneNumberId}/messages`, {
+    messaging_product: 'whatsapp',
+    recipient_type:    'individual',
+    to,
+    type:              'interactive',
+    interactive: {
+      type: 'list',
+      body: { text: body },
+      action: {
+        button: buttonText.substring(0, 20),
+        sections: formattedSections
+      }
+    }
+  });
+  return data;
+}
+
+// ---- Send media by link URL (image/document/video/audio) ----
+export async function sendMediaByUrl(
+  accessToken:   string,
+  phoneNumberId: string,
+  to:            string,
+  mediaType:     'image' | 'document' | 'video' | 'audio',
+  url:           string,
+  caption?:      string,
+  filename?:     string
+) {
+  const client = createWAClient(accessToken);
+  const payload: Record<string, unknown> = { link: url };
+  if (caption)  payload.caption  = caption;
+  if (filename) payload.filename = filename;
+  const { data } = await client.post(`/${phoneNumberId}/messages`, {
+    messaging_product: 'whatsapp',
+    to,
+    type:        mediaType,
+    [mediaType]: payload,
+  });
+  return data;
+}

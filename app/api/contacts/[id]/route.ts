@@ -81,6 +81,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
       if (chat_status === 'intervened') {
         sets.push('intervened_by = ?', 'assigned_agent_id = NULL');
         vals.push(actorName);
+        // Terminate any active flow sessions for this contact
+        await execute(
+          "UPDATE flow_sessions SET status = 'completed', completed_at = ? WHERE workspace_id = ? AND contact_id = ? AND status = 'active'",
+          [utcNow(), payload.workspaceId, params.id]
+        );
       } else if (chat_status === 'resolved' || chat_status === 'open') {
         // Clear agent assignment so next inbound is visible to all (admin + campaigns)
         sets.push('intervened_by = NULL', 'assigned_agent_id = NULL');

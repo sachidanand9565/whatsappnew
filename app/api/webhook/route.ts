@@ -8,6 +8,7 @@ import { parseWebhookBody, sendTextMessage, markAsRead } from '@/lib/whatsapp';
 import { normalizePhone, utcNow, unixToUtc } from '@/lib/utils';
 import { RowDataPacket } from 'mysql2';
 import { emitSSE } from '@/lib/sse';
+import { triggerFlowIfMatch, resumeFlow } from '@/lib/flowEngine';
 
 // ---- GET: Verify webhook with Meta ----
 export async function GET(req: NextRequest) {
@@ -97,10 +98,12 @@ export async function POST(req: NextRequest) {
     );
     // Re-query to get the actual id (whether just inserted or already existed)
     const contactRow = await query<RowDataPacket[]>(
-      'SELECT id, name FROM contacts WHERE workspace_id = ? AND phone = ? LIMIT 1',
+      'SELECT id, name, chat_status FROM contacts WHERE workspace_id = ? AND phone = ? LIMIT 1',
       [workspaceId, phone]
     );
     contactId = contactRow[0].id as number;
+    let chatStatus = contactRow[0].chat_status as string || 'open';
+
     if (profileName && !contactRow[0].name) {
       await execute(
         "UPDATE contacts SET name = ? WHERE id = ? AND (name IS NULL OR name = '')",
@@ -108,10 +111,13 @@ export async function POST(req: NextRequest) {
       );
     }
     // If resolved contact messages again → reopen to active inbox
-    await execute(
-      "UPDATE contacts SET chat_status = 'open', intervened_by = NULL WHERE id = ? AND chat_status = 'resolved'",
-      [contactId]
-    );
+    if (chatStatus === 'resolved') {
+      await execute(
+        "UPDATE contacts SET chat_status = 'open', intervened_by = NULL WHERE id = ? AND chat_status = 'resolved'",
+        [contactId]
+      );
+      chatStatus = 'open';
+    }
 
     // Extract readable content based on message type
     let content = '';
@@ -122,7 +128,7 @@ export async function POST(req: NextRequest) {
       content = JSON.stringify({ __type: 'media', media_id: d?.id, mime_type: d?.mime_type, caption: d?.caption, workspace_id: workspaceId });
     } else if (msg.type === 'audio') {
       const d = msg.audio as Record<string, unknown> | undefined;
-      content = JSON.stringify({ __type: 'media', media_id: d?.id, mime_type: d?.mime_type, workspace_id: workspaceId });
+      content = JSON.stringify({ __type: 'media', media_id: d?.id, mime_type: d?.mime_type, voice: !!d?.voice, workspace_id: workspaceId });
     } else if (msg.type === 'video') {
       const d = msg.video as Record<string, unknown> | undefined;
       content = JSON.stringify({ __type: 'media', media_id: d?.id, mime_type: d?.mime_type, caption: d?.caption, workspace_id: workspaceId });
@@ -152,10 +158,14 @@ export async function POST(req: NextRequest) {
       const d = (msg as any).system as Record<string, unknown> | undefined;
       content = (d?.body as string) || 'System message';
     } else if (msg.type === 'unknown' || msg.type === 'unsupported') {
-      content = '⚠️ Unsupported message type (voice note, poll, etc.)';
+      content = '⚠️ Unsupported message type (poll, call, etc.)';
     } else {
       content = `[${msg.type}]`;
     }
+
+    // Guard database enum validation errors for unknown types
+    const allowedTypes = ['text','image','document','audio','video','template','interactive','reaction','location','contacts','sticker','unknown'];
+    const dbMsgType = allowedTypes.includes(msg.type) ? msg.type : 'unknown';
 
     // Store message (try with replied_to_wamid, fallback without)
     const msgSentAt = unixToUtc(msg.timestamp);
@@ -165,7 +175,7 @@ export async function POST(req: NextRequest) {
         `INSERT IGNORE INTO messages
            (workspace_id, contact_id, wamid, replied_to_wamid, direction, type, content, status, sent_at, created_at)
          VALUES (?, ?, ?, ?, 'inbound', ?, ?, 'delivered', ?, ?)`,
-        [workspaceId, contactId, msg.wamid, msg.replied_to_wamid || null, msg.type, content, msgSentAt, msgNow]
+        [workspaceId, contactId, msg.wamid, msg.replied_to_wamid || null, dbMsgType, content, msgSentAt, msgNow]
       );
     } catch {
       // fallback: insert without replied_to_wamid (column may not exist yet)
@@ -173,7 +183,7 @@ export async function POST(req: NextRequest) {
         `INSERT IGNORE INTO messages
            (workspace_id, contact_id, wamid, direction, type, content, status, sent_at, created_at)
          VALUES (?, ?, ?, 'inbound', ?, ?, 'delivered', ?, ?)`,
-        [workspaceId, contactId, msg.wamid, msg.type, content, msgSentAt, msgNow]
+        [workspaceId, contactId, msg.wamid, dbMsgType, content, msgSentAt, msgNow]
       );
     }
     
@@ -204,8 +214,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ---- Chatbot: match rules ----
-    if (msg.type === 'text' && msg.text) {
+    // ---- Flow System: run active flow or trigger keyword match ----
+    let flowProcessed = false;
+    if (chatStatus !== 'intervened') {
+      const activeSession = await query<RowDataPacket[]>(
+        'SELECT * FROM flow_sessions WHERE workspace_id = ? AND contact_id = ? AND status = "active" LIMIT 1',
+        [workspaceId, contactId]
+      );
+
+      if (activeSession.length > 0) {
+        flowProcessed = await resumeFlow(activeSession[0], { text: content }, phoneNumberId, workspaceAccessToken);
+      } else if (content.trim()) {
+        flowProcessed = await triggerFlowIfMatch(workspaceId, contactId, content, phoneNumberId, workspaceAccessToken);
+      }
+    }
+
+    // ---- Chatbot fallback: match rules (only if not processed by flow and not intervened) ----
+    if (!flowProcessed && chatStatus !== 'intervened' && msg.type === 'text' && msg.text) {
       await processChatbot(workspaceId, contactId, msg.text, phoneNumberId);
     }
   }

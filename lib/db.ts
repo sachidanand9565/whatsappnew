@@ -29,6 +29,12 @@ function createPool(): mysql.Pool {
 function getPool(): mysql.Pool {
   if (!global._mysqlPool) {
     global._mysqlPool = createPool();
+    try {
+      const { startCronRunner } = require('./cronRunner');
+      startCronRunner();
+    } catch (e) {
+      console.error('Failed to start background cron resumer:', e);
+    }
   }
   return global._mysqlPool;
 }
