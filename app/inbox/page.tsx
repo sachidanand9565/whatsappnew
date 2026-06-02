@@ -32,6 +32,20 @@ function parseTemplateContent(content: string): TemplateContent | null {
   return null;
 }
 
+interface InteractiveContent {
+  __type: 'interactive';
+  body: string;
+  buttons: { text: string }[];
+}
+
+function parseInteractiveContent(content: string): InteractiveContent | null {
+  try {
+    const p = JSON.parse(content);
+    if (p.__type === 'interactive') return p as InteractiveContent;
+  } catch { /**/ }
+  return null;
+}
+
 // ── Media message types ───────────────────────────────────────
 interface MediaContent {
   __type: 'media';
@@ -174,28 +188,76 @@ function TemplateBubble({ data, status, time }: { data: TemplateContent; status:
     : data.header_type === 'DOCUMENT' ? File : FileText;
 
   return (
-    <div className="w-72 rounded-2xl rounded-br-sm overflow-hidden shadow-sm border border-green-100">
-      {data.header_type && data.header_type !== 'NONE' && (
-        <div className="bg-gray-100 px-4 py-2.5">
-          {data.header_type === 'TEXT'
-            ? <p className="font-bold text-gray-800 text-sm">{data.header_content}</p>
-            : <div className="flex items-center gap-2 text-gray-500 text-sm"><HeaderIcon size={15} /><span>{data.header_type}</span></div>}
+    <div className="flex flex-col items-end">
+      {/* Main bubble card */}
+      <div className="w-72 rounded-2xl rounded-br-none overflow-hidden shadow-md border border-emerald-100/50 bg-[#d9fdd3] text-slate-800">
+        {data.header_type && data.header_type !== 'NONE' && (
+          <div className="px-4 pt-3 pb-1.5 border-b border-emerald-200/20">
+            {data.header_type === 'TEXT' ? (
+              <p className="font-bold text-slate-900 text-sm">{data.header_content}</p>
+            ) : (
+              <div className="flex items-center gap-2 text-slate-600 text-sm">
+                <HeaderIcon size={15} className="text-emerald-600" />
+                <span className="font-semibold tracking-wider text-xs uppercase">{data.header_type}</span>
+              </div>
+            )}
+          </div>
+        )}
+        <div className="px-4 py-3">
+          <p className="text-sm text-slate-800 whitespace-pre-wrap break-words leading-relaxed">{data.body}</p>
+          {data.footer && <p className="text-[10px] text-slate-500 mt-2 font-medium">{data.footer}</p>}
+          <p className="text-[10px] text-slate-500 text-right mt-1.5 flex items-center justify-end gap-0.5">
+            {time}
+            <span className={status === 'read' ? 'text-sky-500' : 'text-slate-400'}>
+              {status === 'read' || status === 'delivered' ? ' ✓✓' : ' ✓'}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      {/* Stacked quick reply buttons below the main bubble card */}
+      {data.buttons?.length > 0 && (
+        <div className="flex flex-col gap-1.5 mt-1.5 w-72">
+          {data.buttons.map((btn, i) => (
+            <div
+              key={i}
+              className="bg-white hover:bg-slate-50 text-emerald-600 hover:text-emerald-700 font-semibold text-xs py-2 px-4 rounded-xl shadow-sm text-center border border-slate-100/80 cursor-default active:scale-[0.98] transition-all"
+            >
+              {btn.text}
+            </div>
+          ))}
         </div>
       )}
-      <div className="bg-[#dcf8c6] px-4 py-2.5">
-        <p className="text-sm text-gray-800 whitespace-pre-wrap break-words leading-relaxed">{data.body}</p>
-        {data.footer && <p className="text-xs text-gray-400 mt-1.5">{data.footer}</p>}
-        <p className="text-xs text-gray-400 text-right mt-1">
-          {time}
-          <span className={`ml-1 ${status === 'read' ? 'text-green-500' : 'text-gray-400'}`}>
-            {status === 'read' || status === 'delivered' ? '✓✓' : '✓'}
-          </span>
-        </p>
+    </div>
+  );
+}
+
+function InteractiveBubble({ data, status, time }: { data: InteractiveContent; status: string; time: string }) {
+  return (
+    <div className="flex flex-col items-end">
+      {/* Main bubble card */}
+      <div className="w-72 rounded-2xl rounded-br-none overflow-hidden shadow-md border border-emerald-100/50 bg-[#d9fdd3] text-slate-800">
+        <div className="px-4 py-3">
+          <p className="text-sm text-slate-800 whitespace-pre-wrap break-words leading-relaxed">{data.body}</p>
+          <p className="text-[10px] text-slate-500 text-right mt-1.5 flex items-center justify-end gap-0.5">
+            {time}
+            <span className={status === 'read' ? 'text-sky-500' : 'text-slate-400'}>
+              {status === 'read' || status === 'delivered' ? ' ✓✓' : ' ✓'}
+            </span>
+          </p>
+        </div>
       </div>
+
+      {/* Stacked quick reply buttons below the main bubble card */}
       {data.buttons?.length > 0 && (
-        <div className="divide-y divide-gray-200 border-t border-gray-200">
+        <div className="flex flex-col gap-1.5 mt-1.5 w-72">
           {data.buttons.map((btn, i) => (
-            <div key={i} className="bg-white px-4 py-2 text-center text-sm font-medium text-[#00a5f4]">{btn.text}</div>
+            <div
+              key={i}
+              className="bg-white hover:bg-slate-50 text-emerald-600 hover:text-emerald-700 font-semibold text-xs py-2 px-4 rounded-xl shadow-sm text-center border border-slate-100/80 cursor-default active:scale-[0.98] transition-all"
+            >
+              {btn.text}
+            </div>
           ))}
         </div>
       )}
@@ -1293,6 +1355,7 @@ export default function InboxPage() {
 
             {messages.map((m, idx) => {
               const tpl      = parseTemplateContent(m.content);
+              const interactive = parseInteractiveContent(m.content);
               const media    = parseMediaContent(m.content);
               const location = parseLocationContent(m.content);
               const contacts = parseContactsContent(m.content);
@@ -1358,6 +1421,8 @@ export default function InboxPage() {
                   className={`flex transition-all ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
                   {tpl ? (
                     <TemplateBubble data={tpl} status={m.status} time={timeStr} />
+                  ) : interactive ? (
+                    <InteractiveBubble data={interactive} status={m.status} time={timeStr} />
                   ) : (
                     <div className={`max-w-xs lg:max-w-sm rounded-2xl text-sm shadow-sm overflow-hidden
                       ${m.direction === 'outbound'
@@ -1365,7 +1430,7 @@ export default function InboxPage() {
                         : 'bg-white text-gray-800 rounded-bl-sm'}`}>
 
                       {/* Reply reference — with linked message or fallback to last template */}
-                      {(m.replied_to_wamid || m.type === 'button' || m.type === 'interactive') && (() => {
+                      {(m.replied_to_wamid || (m.direction === 'inbound' && (m.type === 'button' || m.type === 'interactive'))) && (() => {
                         const quotedMsg = repliedMsg || messages.slice().reverse().find(
                           (x) => x.direction === 'outbound' && (x.type === 'template' || x.type === 'interactive') && x.id < m.id
                         );
