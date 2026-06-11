@@ -29,7 +29,12 @@ import DelayNode        from './nodes/DelayNode';
 import AddTagNode       from './nodes/AddTagNode';
 import TransferAgentNode from './nodes/TransferAgentNode';
 import ConnectFlowNode  from './nodes/ConnectFlowNode';
+import ButtonEdge       from './edges/ButtonEdge';
 import NodePanel        from './NodePanel';
+
+const EDGE_TYPES = {
+  button: ButtonEdge,
+};
 
 const NODE_TYPES: NodeTypes = {
   start:          StartNode,
@@ -115,7 +120,13 @@ export default function FlowBuilderPage() {
         : [defaultStartNode()];
       const savedEdges = Array.isArray(f.edges) ? f.edges : [];
       setNodes(savedNodes);
-      setEdges(savedEdges);
+      setEdges(savedEdges.map((e: Edge) => ({ ...e, type: e.type || 'button' })));
+
+      // Avoid generating duplicate IDs for new nodes after reload
+      savedNodes.forEach(n => {
+        const match = /^node_(\d+)$/.exec(n.id);
+        if (match) nodeIdCounter = Math.max(nodeIdCounter, parseInt(match[1], 10));
+      });
     }).finally(() => setLoading(false));
   }, [id]);
 
@@ -132,6 +143,7 @@ export default function FlowBuilderPage() {
   const onConnect = useCallback((conn: Connection) => {
     setEdges(eds => addEdge({
       ...conn,
+      type: 'button',
       animated: true,
       markerEnd: { type: MarkerType.ArrowClosed, color: '#25D366' },
       style: { stroke: '#25D366', strokeWidth: 2 },
@@ -310,6 +322,8 @@ export default function FlowBuilderPage() {
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
             nodeTypes={NODE_TYPES}
+            edgeTypes={EDGE_TYPES}
+            defaultEdgeOptions={{ type: 'button' }}
             fitView
             deleteKeyCode="Delete"
             snapToGrid
