@@ -7,6 +7,7 @@ import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { query, insert } from '@/lib/db';
 import { apiSuccess, apiError } from '@/lib/utils';
+import { decryptId } from '@/lib/idCrypto';
 import { RowDataPacket } from 'mysql2';
 
 type Params = { params: { id: string } };
@@ -14,7 +15,7 @@ type Params = { params: { id: string } };
 export async function GET(req: NextRequest, { params }: Params) {
   try {
     const payload = requireAuth(req);
-    const { id } = params;
+    const id = decryptId(params.id);
 
     const assignments = await query<RowDataPacket[]>(
       `SELECT u.id, u.name, u.email, u.role, ca.created_at AS assigned_at
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const payload = requireAuth(req);
     if (!['admin', 'manager'].includes(payload.role)) return apiError('Admin or Manager only', 403);
 
-    const { id } = params;
+    const id = decryptId(params.id);
     const { agent_id } = await req.json();
     if (!agent_id) return apiError('agent_id required');
 
@@ -58,7 +59,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     const payload = requireAuth(req);
     if (!['admin', 'manager'].includes(payload.role)) return apiError('Admin or Manager only', 403);
 
-    const { id } = params;
+    const id = decryptId(params.id);
     const { agent_id } = await req.json();
     if (!agent_id) return apiError('agent_id required');
 

@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import { query, queryOne } from '@/lib/db'
 import { getAdminFromCookies } from '@/lib/auth'
+import { decryptIdNum } from '@/lib/idCrypto'
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   if (!getAdminFromCookies()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const userId = decryptIdNum(params.id)
   const user = await queryOne(`
     SELECT u.id, u.name, u.email, u.created_at,
            w.id AS workspace_id,
@@ -19,7 +21,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     FROM users u
     JOIN workspaces w ON w.owner_id = u.id
     WHERE u.id = ?
-  `, [params.id])
+  `, [userId])
 
   if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json({ user })
@@ -43,7 +45,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   if (updates.length === 0) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
 
-  values.push(params.id)
+  values.push(decryptIdNum(params.id))
   await query(`UPDATE workspaces SET ${updates.join(', ')} WHERE owner_id = ?`, values)
   return NextResponse.json({ ok: true })
 }

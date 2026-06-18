@@ -7,13 +7,14 @@ import { query, execute } from '@/lib/db';
 import { apiSuccess, apiError } from '@/lib/utils';
 import { RowDataPacket } from 'mysql2';
 import axios from 'axios';
+import { decryptIdNum } from '@/lib/idCrypto';
 
 type Params = { params: { id: string } };
 
 export async function DELETE(req: NextRequest, { params }: Params) {
   try {
     const payload = requireAuth(req);
-    const id = Number(params.id);
+    const id = decryptIdNum(params.id);
     if (!id || isNaN(id)) return apiError('Invalid id', 400);
 
     // Verify ownership

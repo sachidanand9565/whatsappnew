@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Check } from 'lucide-react'
+import { encryptId } from '@/lib/idCrypto'
 import type { Plan } from '@/types'
 
 const EMPTY_PLAN: Omit<Plan, 'id'> = {
@@ -25,7 +26,7 @@ export default function PlansPage() {
 
   async function save() {
     const method = editing ? 'PUT' : 'POST'
-    const url    = editing ? `/api/plans/${editing.id}` : '/api/plans'
+    const url    = editing ? `/api/plans/${encryptId(editing.id)}` : '/api/plans'
     await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
@@ -37,7 +38,7 @@ export default function PlansPage() {
 
   async function deletePlan(id: number) {
     if (!confirm('Delete this plan?')) return
-    await fetch(`/api/plans/${id}`, { method: 'DELETE' })
+    await fetch(`/api/plans/${encryptId(id)}`, { method: 'DELETE' })
     load()
   }
 

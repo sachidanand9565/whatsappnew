@@ -4,6 +4,7 @@ import { apiFetch } from '@/hooks/useApi';
 import { Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ChatbotRule } from '@/types';
+import { encryptId } from '@/lib/idCrypto';
 
 const TRIGGER_LABELS: Record<string, string> = {
   keyword:     'Contains keyword',
@@ -28,7 +29,7 @@ export default function ChatbotPage() {
 
   async function deleteRule(id: number) {
     if (!confirm('Delete this rule?')) return;
-    await apiFetch(`/api/chatbot/${id}`, { method: 'DELETE' });
+    await apiFetch(`/api/chatbot/${encryptId(id)}`, { method: 'DELETE' });
     toast.success('Rule deleted');
     load();
   }
@@ -141,7 +142,7 @@ function RuleModal({ rule, onClose, onSaved }: {
     setSaving(true);
     try {
       if (rule) {
-        await apiFetch(`/api/chatbot/${rule.id}`, { method: 'PUT', body: JSON.stringify(form) });
+        await apiFetch(`/api/chatbot/${encryptId(rule.id)}`, { method: 'PUT', body: JSON.stringify(form) });
         toast.success('Rule updated');
       } else {
         await apiFetch('/api/chatbot', { method: 'POST', body: JSON.stringify(form) });

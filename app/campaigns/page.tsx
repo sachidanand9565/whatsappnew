@@ -5,6 +5,7 @@ import { apiFetch } from '@/hooks/useApi';
 import { Plus, Play, Radio, Zap, ChevronRight, Trash2, UserPlus, X, Upload, FileSpreadsheet, ArrowRight, ArrowLeft, Eye, Send, CheckCircle2, AlertCircle, Phone, Sparkles, Users, ChevronDown, Search, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Campaign, Template, Contact, User } from '@/types';
+import { encryptId } from '@/lib/idCrypto';
 
 const STATUS_COLORS: Record<string, string> = {
   draft:      'bg-gray-100 text-gray-600',
@@ -48,7 +49,7 @@ export default function CampaignsPage() {
     setDeletingId(id);
     try {
       const token = localStorage.getItem('token');
-      const res   = await fetch(`/api/campaigns/${id}`, {
+      const res   = await fetch(`/api/campaigns/${encryptId(id)}`, {
         method:  'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -65,7 +66,7 @@ export default function CampaignsPage() {
 
   async function launch(id: number) {
     try {
-      const r = await apiFetch(`/api/campaigns/${id}/launch`, { method: 'POST' });
+      const r = await apiFetch(`/api/campaigns/${encryptId(id)}/launch`, { method: 'POST' });
       toast.success(r.data?.message || 'Campaign launched!');
       load();
     } catch (err) {
@@ -156,7 +157,7 @@ export default function CampaignsPage() {
             const typeCfg = TYPE_CONFIG[cType] || TYPE_CONFIG.broadcast;
             return (
               <div key={c.id} className="card cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => router.push(`/campaigns/${c.id}`)}>
+                onClick={() => router.push(`/campaigns/${encryptId(c.id)}`)}>
                 <div className="flex flex-wrap items-start gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -277,7 +278,7 @@ function AssignAgentModal({ campaign, onClose }: { campaign: Campaign; onClose: 
     const headers = { Authorization: `Bearer ${token}` };
     Promise.all([
       fetch('/api/agents', { headers }).then((r) => r.json()),
-      fetch(`/api/campaigns/${campaign.id}/assign`, { headers }).then((r) => r.json()),
+      fetch(`/api/campaigns/${encryptId(campaign.id)}/assign`, { headers }).then((r) => r.json()),
     ]).then(([agentsRes, assignedRes]) => {
       setAgents(agentsRes.data || []);
       setAssigned((assignedRes.data || []).map((a: { id: number }) => a.id));
@@ -288,7 +289,7 @@ function AssignAgentModal({ campaign, onClose }: { campaign: Campaign; onClose: 
   async function toggle(agentId: number, isAssigned: boolean) {
     setSaving(agentId);
     try {
-      const res = await fetch(`/api/campaigns/${campaign.id}/assign`, {
+      const res = await fetch(`/api/campaigns/${encryptId(campaign.id)}/assign`, {
         method: isAssigned ? 'DELETE' : 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ agent_id: agentId }),
@@ -597,7 +598,7 @@ function CampaignWizard({ onClose, onSaved }: { onClose: () => void; onSaved: ()
         }
       }
 
-      const r = await apiFetch(`/api/campaigns/${campId}/test`, {
+      const r = await apiFetch(`/api/campaigns/${encryptId(campId)}/test`, {
         method: 'POST',
         body: JSON.stringify({ phone: testPhone, variables: testVars }),
       });
@@ -619,7 +620,7 @@ function CampaignWizard({ onClose, onSaved }: { onClose: () => void; onSaved: ()
 
     setLaunching(true);
     try {
-      const r = await apiFetch(`/api/campaigns/${campId}/launch`, { method: 'POST' });
+      const r = await apiFetch(`/api/campaigns/${encryptId(campId)}/launch`, { method: 'POST' });
       toast.success(r.data?.message || 'Campaign launched!');
       onSaved();
     } catch (err) {
@@ -711,9 +712,10 @@ function CampaignWizard({ onClose, onSaved }: { onClose: () => void; onSaved: ()
 
   // ── API Campaign created → show endpoint ──
   if (apiCreatedId) {
+    const encryptedApiId = encryptId(apiCreatedId);
     const apiEndpoint = typeof window !== 'undefined'
-      ? `${window.location.origin}/api/campaigns/${apiCreatedId}/send`
-      : `/api/campaigns/${apiCreatedId}/send`;
+      ? `${window.location.origin}/api/campaigns/${encryptedApiId}/send`
+      : `/api/campaigns/${encryptedApiId}/send`;
 
     return (
       <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">

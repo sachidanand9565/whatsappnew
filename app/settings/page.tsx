@@ -8,6 +8,7 @@ import {
   MessageSquare, Image, FileText, Music, MapPin, MousePointerClick,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { encryptId } from '@/lib/idCrypto';
 
 // ── FB SDK type shim ──────────────────────────────────────────
 declare global {
@@ -429,13 +430,13 @@ export default function SettingsPage() {
 
   async function deleteHook(id: number) {
     if (!confirm('Delete this webhook?')) return;
-    await apiFetch(`/api/webhooks/${id}`, { method: 'DELETE' });
+    await apiFetch(`/api/webhooks/${encryptId(id)}`, { method: 'DELETE' });
     setHooks((h) => h.filter((x) => x.id !== id));
     toast.success('Deleted');
   }
 
   async function toggleHook(hook: CWHook) {
-    await apiFetch(`/api/webhooks/${hook.id}`, {
+    await apiFetch(`/api/webhooks/${encryptId(hook.id)}`, {
       method: 'PATCH',
       body: JSON.stringify({ is_active: hook.is_active ? 0 : 1 }),
     });

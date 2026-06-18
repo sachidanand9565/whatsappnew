@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { formatDate } from '@/lib/utils'
+import { encryptId } from '@/lib/idCrypto'
 import type { SupportTicket } from '@/types'
 
 const STATUS_COLORS = {
@@ -32,7 +33,7 @@ export default function SupportPage() {
   useEffect(load, [filter])
 
   async function updateStatus(id: number, status: string) {
-    await fetch(`/api/support/${id}`, {
+    await fetch(`/api/support/${encryptId(id)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Template } from '@/types';
+import { encryptId } from '@/lib/idCrypto';
 
 // ─── Types ───────────────────────────────────────────────────
 type ButtonType = 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER';
@@ -134,7 +135,7 @@ export default function TemplatesPage() {
     setDeletingId(id);
     try {
       const token = localStorage.getItem('token');
-      const res   = await fetch(`/api/templates/${id}`, {
+      const res   = await fetch(`/api/templates/${encryptId(id)}`, {
         method:  'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

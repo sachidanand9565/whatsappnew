@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, ToggleLeft, ToggleRight, Search, UserCog, SlidersHorizontal, X, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { encryptId } from '@/lib/idCrypto';
 
 interface Agent {
   id: number;
@@ -48,7 +49,7 @@ function AssignCampaignsModal({ agent, onClose }: { agent: Agent; onClose: () =>
     const headers = { Authorization: `Bearer ${token}` };
     Promise.all([
       fetch('/api/campaigns', { headers }).then((r) => r.json()),
-      fetch(`/api/agents/${agent.id}/campaigns`, { headers }).then((r) => r.json()),
+      fetch(`/api/agents/${encryptId(agent.id)}/campaigns`, { headers }).then((r) => r.json()),
     ]).then(([allRes, assignedRes]) => {
       setAllCampaigns(allRes.data || []);
       setAssignedIds((assignedRes.data || []).map((c: Campaign) => c.id));
@@ -60,7 +61,7 @@ function AssignCampaignsModal({ agent, onClose }: { agent: Agent; onClose: () =>
     const isAssigned = assignedIds.includes(campaign.id);
     setToggling(campaign.id);
     try {
-      const res = await fetch(`/api/campaigns/${campaign.id}/assign`, {
+      const res = await fetch(`/api/campaigns/${encryptId(campaign.id)}/assign`, {
         method: isAssigned ? 'DELETE' : 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ agent_id: agent.id }),
@@ -236,7 +237,7 @@ export default function AgentsPage() {
   }
 
   async function toggleStatus(agent: Agent) {
-    const res = await fetch(`/api/agents/${agent.id}`, {
+    const res = await fetch(`/api/agents/${encryptId(agent.id)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ is_active: agent.is_active ? 0 : 1 }),
@@ -249,7 +250,7 @@ export default function AgentsPage() {
 
   async function deleteAgent(agent: Agent) {
     if (!confirm(`Remove ${agent.name} from workspace?`)) return;
-    const res = await fetch(`/api/agents/${agent.id}`, {
+    const res = await fetch(`/api/agents/${encryptId(agent.id)}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -258,7 +259,7 @@ export default function AgentsPage() {
   }
 
   async function changeRole(agent: Agent, role: 'manager' | 'agent') {
-    const res = await fetch(`/api/agents/${agent.id}`, {
+    const res = await fetch(`/api/agents/${encryptId(agent.id)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ role }),

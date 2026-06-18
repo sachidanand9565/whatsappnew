@@ -9,6 +9,7 @@ import { query, execute, insert } from '@/lib/db';
 import { apiSuccess, apiError, utcNow } from '@/lib/utils';
 import { RowDataPacket } from 'mysql2';
 import { emitSSE } from '@/lib/sse';
+import { decryptIdNum } from '@/lib/idCrypto';
 
 type Params = { params: { id: string } };
 
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     const payload = requireAuth(req);
     const rows = await query<RowDataPacket[]>(
       'SELECT * FROM contacts WHERE id = ? AND workspace_id = ?',
-      [params.id, payload.workspaceId]
+      [decryptIdNum(params.id), payload.workspaceId]
     );
     if (rows.length === 0) return apiError('Not found', 404);
     return apiSuccess(rows[0]);
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
     const payload = requireAuth(req);
+    const contactId = decryptIdNum(params.id);
     const body = await req.json();
     const { name, email, city, source, status, tags, notes, opted_in, chat_status, transfer_to_id, reset_unread } = body;
 
@@ -37,7 +39,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (reset_unread) {
       await execute(
         'UPDATE contacts SET last_read_at = UTC_TIMESTAMP() WHERE id = ? AND workspace_id = ?',
-        [params.id, payload.workspaceId]
+        [contactId, payload.workspaceId]
       );
       return apiSuccess({ updated: true });
     }
@@ -55,15 +57,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
       // intervened_by stores WHO transferred (actor), so profile panel shows "Transferred By: [actor]"
       await execute(
         'UPDATE contacts SET assigned_agent_id = ?, intervened_by = ? WHERE id = ? AND workspace_id = ?',
-        [transfer_to_id, actorName, params.id, payload.workspaceId]
+        [transfer_to_id, actorName, contactId, payload.workspaceId]
       );
       const t = utcNow();
       await insert(
         `INSERT INTO messages (workspace_id, contact_id, direction, type, content, status, sent_at, created_at)
          VALUES (?, ?, 'outbound', 'system', ?, 'delivered', ?, ?)`,
-        [payload.workspaceId, params.id, `Transferred to ${targetName} by ${actorName}`, t, t]
+        [payload.workspaceId, contactId, `Transferred to ${targetName} by ${actorName}`, t, t]
       );
-      emitSSE({ type: 'chat_status_update', workspaceId: payload.workspaceId, contactId: Number(params.id), chatStatus: 'intervened' });
+      emitSSE({ type: 'chat_status_update', workspaceId: payload.workspaceId, contactId, chatStatus: 'intervened' });
       return apiSuccess({ updated: true });
     }
 
@@ -84,13 +86,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
         // Terminate any active flow sessions for this contact
         await execute(
           "UPDATE flow_sessions SET status = 'completed', completed_at = ? WHERE workspace_id = ? AND contact_id = ? AND status = 'active'",
-          [utcNow(), payload.workspaceId, params.id]
+          [utcNow(), payload.workspaceId, contactId]
         );
       } else if (chat_status === 'resolved' || chat_status === 'open') {
         // Clear agent assignment so next inbound is visible to all (admin + campaigns)
         sets.push('intervened_by = NULL', 'assigned_agent_id = NULL');
       }
-      vals.push(params.id, payload.workspaceId);
+      vals.push(contactId, payload.workspaceId);
       await execute(
         `UPDATE contacts SET ${sets.join(', ')} WHERE id = ? AND workspace_id = ?`, vals
       );
@@ -109,11 +111,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
         await insert(
           `INSERT INTO messages (workspace_id, contact_id, direction, type, content, status, sent_at, created_at)
            VALUES (?, ?, 'outbound', 'system', ?, 'delivered', ?, ?)`,
-          [payload.workspaceId, params.id, systemText, t, t]
+          [payload.workspaceId, contactId, systemText, t, t]
         );
       }
 
-      emitSSE({ type: 'chat_status_update', workspaceId: payload.workspaceId, contactId: Number(params.id), chatStatus: chat_status });
+      emitSSE({ type: 'chat_status_update', workspaceId: payload.workspaceId, contactId, chatStatus: chat_status });
       return apiSuccess({ updated: true });
     }
 
@@ -132,7 +134,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
     if (sets.length === 0) return apiSuccess({ updated: false });
 
-    vals.push(params.id, payload.workspaceId);
+    vals.push(contactId, payload.workspaceId);
     await execute(
       `UPDATE contacts SET ${sets.join(', ')} WHERE id = ? AND workspace_id = ?`,
       vals
@@ -149,7 +151,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     const payload = requireAuth(req);
     await execute(
       'DELETE FROM contacts WHERE id = ? AND workspace_id = ?',
-      [params.id, payload.workspaceId]
+      [decryptIdNum(params.id), payload.workspaceId]
     );
     return apiSuccess({ deleted: true });
   } catch (err: unknown) {

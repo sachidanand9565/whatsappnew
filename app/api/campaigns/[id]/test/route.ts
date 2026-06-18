@@ -8,6 +8,7 @@ import { requireAuth } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { apiSuccess, apiError, normalizePhone } from '@/lib/utils';
 import { sendTemplateMessage } from '@/lib/whatsapp';
+import { decryptIdNum } from '@/lib/idCrypto';
 import { RowDataPacket } from 'mysql2';
 
 type Params = { params: { id: string } };
@@ -15,7 +16,7 @@ type Params = { params: { id: string } };
 export async function POST(req: NextRequest, { params }: Params) {
   try {
     const payload = requireAuth(req);
-    const campaignId = Number(params.id);
+    const campaignId = decryptIdNum(params.id);
 
     const { phone, variables } = await req.json();
     if (!phone) return apiError('Phone number is required', 400);

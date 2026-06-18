@@ -4,6 +4,7 @@ import { apiFetch } from '@/hooks/useApi';
 import { Plus, Search, Upload, Trash2, Edit2, Tag, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Contact } from '@/types';
+import { encryptId } from '@/lib/idCrypto';
 
 const STATUS_COLORS: Record<string, string> = {
   new:       'bg-green-100 text-green-700',
@@ -38,7 +39,7 @@ export default function ContactsPage() {
 
   async function deleteContact(id: number) {
     if (!confirm('Delete this contact?')) return;
-    await apiFetch(`/api/contacts/${id}`, { method: 'DELETE' });
+    await apiFetch(`/api/contacts/${encryptId(id)}`, { method: 'DELETE' });
     toast.success('Deleted');
     load(page);
   }
@@ -211,7 +212,7 @@ function ContactModal({ contact, onClose, onSaved }: {
       const tags = form.tags.split(',').map((t) => t.trim()).filter(Boolean);
       const body = { ...form, tags };
       if (contact) {
-        await apiFetch(`/api/contacts/${contact.id}`, { method: 'PUT', body: JSON.stringify(body) });
+        await apiFetch(`/api/contacts/${encryptId(contact.id)}`, { method: 'PUT', body: JSON.stringify(body) });
         toast.success('Contact updated');
       } else {
         await apiFetch('/api/contacts', { method: 'POST', body: JSON.stringify(body) });

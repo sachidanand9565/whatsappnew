@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { apiFetch } from '@/hooks/useApi';
 import { Plus, Zap, ToggleLeft, ToggleRight, Trash2, Pencil, TrendingUp, Play } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { encryptId } from '@/lib/idCrypto';
 
 interface Flow {
   id: number;
@@ -36,7 +37,7 @@ export default function FlowsPage() {
     setCreating(true);
     const r = await apiFetch('/api/flows', { method: 'POST', body: JSON.stringify({ name }) });
     if (r?.data?.id) {
-      window.location.href = `/flows/${r.data.id}`;
+      window.location.href = `/flows/${encryptId(r.data.id)}`;
     } else {
       toast.error('Failed to create flow');
       setCreating(false);
@@ -44,7 +45,7 @@ export default function FlowsPage() {
   }
 
   async function toggleActive(flow: Flow) {
-    await apiFetch(`/api/flows/${flow.id}`, {
+    await apiFetch(`/api/flows/${encryptId(flow.id)}`, {
       method: 'PUT',
       body: JSON.stringify({ is_active: !flow.is_active }),
     });
@@ -54,7 +55,7 @@ export default function FlowsPage() {
 
   async function deleteFlow(id: number) {
     if (!confirm('Delete this flow?')) return;
-    await apiFetch(`/api/flows/${id}`, { method: 'DELETE' });
+    await apiFetch(`/api/flows/${encryptId(id)}`, { method: 'DELETE' });
     toast.success('Deleted');
     load();
   }
@@ -180,7 +181,7 @@ export default function FlowsPage() {
 
               {/* Actions */}
               <div className="flex gap-2 mt-3">
-                <Link href={`/flows/${flow.id}`}
+                <Link href={`/flows/${encryptId(flow.id)}`}
                   className="flex-1 flex items-center justify-center gap-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 py-2 rounded-lg text-xs font-medium transition-colors">
                   <Pencil size={12} /> Edit Flow
                 </Link>

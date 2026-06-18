@@ -7,11 +7,12 @@ import { requireAuth } from '@/lib/auth';
 import { query, execute } from '@/lib/db';
 import { apiSuccess, apiError } from '@/lib/utils';
 import { RowDataPacket } from 'mysql2';
+import { decryptIdNum } from '@/lib/idCrypto';
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const payload = requireAuth(req);
-    const id = Number(params.id);
+    const id = decryptIdNum(params.id);
 
     // Verify ownership
     const rows = await query<RowDataPacket[]>(
@@ -49,7 +50,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const payload = requireAuth(req);
-    const id = Number(params.id);
+    const id = decryptIdNum(params.id);
 
     await execute(
       'DELETE FROM chatbot_webhooks WHERE id = ? AND workspace_id = ?',

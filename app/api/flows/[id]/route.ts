@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { query, execute } from '@/lib/db';
 import { apiSuccess, apiError } from '@/lib/utils';
+import { decryptId } from '@/lib/idCrypto';
 import { RowDataPacket } from 'mysql2';
 
 // GET /api/flows/[id]
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const { workspaceId } = requireAuth(req);
     const rows = await query<RowDataPacket[]>(
       'SELECT * FROM flows WHERE id = ? AND workspace_id = ? LIMIT 1',
-      [params.id, workspaceId]
+      [decryptId(params.id), workspaceId]
     );
     if (!rows.length) return apiError('Not found', 404);
     const f = rows[0];
@@ -52,7 +53,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         nodes ? JSON.stringify(nodes) : null,
         edges ? JSON.stringify(edges) : null,
         is_active !== undefined ? (is_active ? 1 : 0) : null,
-        params.id, workspaceId,
+        decryptId(params.id), workspaceId,
       ]
     );
     return apiSuccess({ ok: true });
@@ -66,7 +67,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { workspaceId } = requireAuth(req);
-    await execute('DELETE FROM flows WHERE id = ? AND workspace_id = ?', [params.id, workspaceId]);
+    await execute('DELETE FROM flows WHERE id = ? AND workspace_id = ?', [decryptId(params.id), workspaceId]);
     return apiSuccess({ ok: true });
   } catch (e: any) {
     if (e?.message === 'UNAUTHORIZED') return apiError('Unauthorized', 401);

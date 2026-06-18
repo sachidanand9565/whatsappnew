@@ -21,6 +21,7 @@ import { requireAuth } from '@/lib/auth';
 import { query, execute, insert } from '@/lib/db';
 import { apiSuccess, apiError, normalizePhone, utcNow } from '@/lib/utils';
 import { sendTemplateMessage } from '@/lib/whatsapp';
+import { decryptIdNum } from '@/lib/idCrypto';
 import { RowDataPacket } from 'mysql2';
 
 export async function POST(
@@ -49,7 +50,7 @@ export async function POST(
       payload = requireAuth(req);
     }
 
-    const campaignId = Number(params.id);
+    const campaignId = decryptIdNum(params.id);
 
     if (!campaignId) return apiError('Invalid campaign ID', 400);
 

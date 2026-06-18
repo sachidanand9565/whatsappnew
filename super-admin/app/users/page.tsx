@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Search, UserX, UserCheck, Eye, MoreVertical } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { encryptId } from '@/lib/idCrypto'
 import type { Tenant } from '@/types'
 
 const STATUS_COLORS = {
@@ -40,7 +41,7 @@ export default function UsersPage() {
   useEffect(() => { load() }, [search, status, plan])
 
   async function updateStatus(id: number, newStatus: string) {
-    await fetch(`/api/users/${id}`, {
+    await fetch(`/api/users/${encryptId(id)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
@@ -130,7 +131,7 @@ export default function UsersPage() {
                   <td className="px-4 py-3 text-gray-500">{formatDate(u.created_at)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <Link href={`/users/${u.id}`} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700">
+                      <Link href={`/users/${encryptId(u.id)}`} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700">
                         <Eye className="w-4 h-4" />
                       </Link>
                       {u.status === 'active' ? (

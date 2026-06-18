@@ -5,6 +5,7 @@ import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { apiSuccess, apiError } from '@/lib/utils';
+import { decryptId } from '@/lib/idCrypto';
 import { RowDataPacket } from 'mysql2';
 
 type Params = { params: { id: string } };
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     const payload = requireAuth(req);
     if (!['admin', 'manager'].includes(payload.role)) return apiError('Admin or Manager only', 403);
 
-    const { id } = params;
+    const id = decryptId(params.id);
 
     const campaigns = await query<RowDataPacket[]>(
       `SELECT c.id, c.name, c.status, c.campaign_type, t.name AS template_name

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { apiFetch } from '@/hooks/useApi';
+import { encryptId } from '@/lib/idCrypto';
 import MediaLibrary, { type MediaItem as MLItem } from '@/app/components/MediaLibrary';
 import { Send, Search, FileText, Image, FileVideo, File, ChevronDown, ChevronUp, Download, Music, MapPin, User, UserCheck, CheckCircle, Loader2, LayoutTemplate, X, Clock, ArrowRightLeft, Zap, Plus, Trash2, Tag, Eye, Paperclip, Maximize2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -282,7 +283,7 @@ function ProfilePanel({ contact, templateMsgCount, sessionMsgCount, onContactUpd
   async function saveNotes() {
     setSavingNotes(true);
     try {
-      await apiFetch(`/api/contacts/${contact.id}`, {
+      await apiFetch(`/api/contacts/${encryptId(contact.id)}`, {
         method: 'PUT',
         body: JSON.stringify({ notes: notesVal }),
       });
@@ -304,7 +305,7 @@ function ProfilePanel({ contact, templateMsgCount, sessionMsgCount, onContactUpd
   async function saveTags(newTags: string[]) {
     setSavingTags(true);
     try {
-      await apiFetch(`/api/contacts/${contact.id}`, {
+      await apiFetch(`/api/contacts/${encryptId(contact.id)}`, {
         method: 'PUT',
         body: JSON.stringify({ tags: newTags }),
       });
@@ -609,7 +610,7 @@ export default function InboxPage() {
   }
 
   async function deleteQuickReply(id: number) {
-    await apiFetch(`/api/quick-replies/${id}`, { method: 'DELETE' });
+    await apiFetch(`/api/quick-replies/${encryptId(id)}`, { method: 'DELETE' });
     setQuickReplies((prev) => prev.filter((q) => q.id !== id));
   }
   const bottomRef                           = useRef<HTMLDivElement>(null);
@@ -791,7 +792,7 @@ export default function InboxPage() {
       return next;
     });
     // Server-side read: updates last_read_at in DB (syncs across all devices)
-    apiFetch(`/api/contacts/${c.id}`, { method: 'PUT', body: JSON.stringify({ reset_unread: true }) }).catch(() => {});
+    apiFetch(`/api/contacts/${encryptId(c.id)}`, { method: 'PUT', body: JSON.stringify({ reset_unread: true }) }).catch(() => {});
     // Send WhatsApp read receipts so user sees blue ticks on their end
     apiFetch('/api/messages/read', { method: 'POST', body: JSON.stringify({ contactId: c.id }) }).catch(() => {});
   }
@@ -886,7 +887,7 @@ export default function InboxPage() {
     };
     setMessages((prev) => [...prev, optimistic]);
     try {
-      await apiFetch(`/api/contacts/${selected.id}`, {
+      await apiFetch(`/api/contacts/${encryptId(selected.id)}`, {
         method: 'PUT',
         body: JSON.stringify({ chat_status: 'intervened' }),
       });
@@ -921,7 +922,7 @@ export default function InboxPage() {
       };
       setMessages((prev) => [...prev, closedMsg]);
 
-      await apiFetch(`/api/contacts/${selected.id}`, {
+      await apiFetch(`/api/contacts/${encryptId(selected.id)}`, {
         method: 'PUT',
         body: JSON.stringify({ chat_status: 'resolved' }),
       });
@@ -991,7 +992,7 @@ export default function InboxPage() {
     setTransferring(true);
     setShowTransfer(false);
     try {
-      await apiFetch(`/api/contacts/${selected.id}`, {
+      await apiFetch(`/api/contacts/${encryptId(selected.id)}`, {
         method: 'PUT',
         body: JSON.stringify({ transfer_to_id: agent.id }),
       });

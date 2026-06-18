@@ -6,6 +6,7 @@ import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { apiSuccess, apiError } from '@/lib/utils';
+import { decryptIdNum } from '@/lib/idCrypto';
 
 type Params = { params: { id: string } };
 
@@ -14,8 +15,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const payload = requireAuth(req);
     if (payload.role !== 'admin') return apiError('Admin only', 403);
 
-    const { id } = params;
-    const agentId = Number(id);
+    const agentId = decryptIdNum(params.id);
     const { role, is_active } = await req.json();
 
     if (role && !['manager', 'agent'].includes(role)) return apiError('Invalid role');
@@ -47,8 +47,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     const payload = requireAuth(req);
     if (payload.role !== 'admin') return apiError('Admin only', 403);
 
-    const { id } = params;
-    const agentId = Number(id);
+    const agentId = decryptIdNum(params.id);
 
     // Remove from workspace (keeps user account but removes workspace access)
     await query(

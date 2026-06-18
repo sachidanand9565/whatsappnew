@@ -6,6 +6,7 @@ import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { query, execute } from '@/lib/db';
 import { apiSuccess, apiError } from '@/lib/utils';
+import { decryptIdNum } from '@/lib/idCrypto';
 import { RowDataPacket } from 'mysql2';
 
 type Params = { params: { id: string } };
@@ -15,7 +16,7 @@ const VALID_STATUSES = ['all', 'sent', 'delivered', 'read', 'failed', 'pending',
 export async function GET(req: NextRequest, { params }: Params) {
   try {
     const payload    = requireAuth(req);
-    const campaignId = Number(params.id);
+    const campaignId = decryptIdNum(params.id);
     const url        = new URL(req.url);
 
     const rawStatus = url.searchParams.get('status') || 'all';
@@ -175,7 +176,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 export async function DELETE(req: NextRequest, { params }: Params) {
   try {
     const payload    = requireAuth(req);
-    const campaignId = Number(params.id);
+    const campaignId = decryptIdNum(params.id);
     if (!campaignId || isNaN(campaignId)) return apiError('Invalid id', 400);
 
     const rows = await query<RowDataPacket[]>(

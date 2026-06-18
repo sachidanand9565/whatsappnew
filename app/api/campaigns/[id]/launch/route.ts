@@ -7,6 +7,7 @@ import { requireAuth } from '@/lib/auth';
 import { query, execute, insert } from '@/lib/db';
 import { apiSuccess, apiError, utcNow } from '@/lib/utils';
 import { sendTemplateMessage } from '@/lib/whatsapp';
+import { decryptIdNum } from '@/lib/idCrypto';
 import { RowDataPacket } from 'mysql2';
 
 type Params = { params: { id: string } };
@@ -14,7 +15,7 @@ type Params = { params: { id: string } };
 export async function POST(req: NextRequest, { params }: Params) {
   try {
     const payload = requireAuth(req);
-    const campaignId = Number(params.id);
+    const campaignId = decryptIdNum(params.id);
 
     // Load campaign + template + workspace creds
     const camps = await query<RowDataPacket[]>(
