@@ -37,6 +37,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, access_token: finalToken });
   } catch (err) {
     if (err instanceof Error && err.message === 'UNAUTHORIZED') return apiError('Unauthorized', 401);
-    return apiError('Token exchange failed', 500);
+    console.error('Meta token exchange failed:', err);
+    const detail = err instanceof Error ? err.message : 'unknown error';
+    return apiError(`Token exchange failed: ${detail}`, 500);
   }
 }
