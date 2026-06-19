@@ -11,8 +11,11 @@ import { RowDataPacket } from 'mysql2';
 export async function GET(req: NextRequest) {
   try {
     const payload = requireAuth(req);
+    const date = req.nextUrl.searchParams.get('date'); // YYYY-MM-DD, optional
 
     // Subquery: accurate per-status counts from campaign_contacts
+    // When `date` is given, counts are restricted to messages sent on that date
+    const dateFilter = date ? 'WHERE DATE(sent_at) = ?' : '';
     const statsSub = `
       LEFT JOIN (
         SELECT campaign_id,
@@ -21,6 +24,7 @@ export async function GET(req: NextRequest) {
           COALESCE(SUM(status = 'read'),                       0) AS cc_read,
           COALESCE(SUM(status = 'failed'),                     0) AS cc_failed
         FROM campaign_contacts
+        ${dateFilter}
         GROUP BY campaign_id
       ) cc_stats ON cc_stats.campaign_id = c.id`;
 
@@ -29,6 +33,8 @@ export async function GET(req: NextRequest) {
       COALESCE(cc_stats.cc_delivered, 0) AS cc_delivered,
       COALESCE(cc_stats.cc_read,      0) AS cc_read,
       COALESCE(cc_stats.cc_failed,    0) AS cc_failed`;
+
+    const dateParams = date ? [date] : [];
 
     // Agents only see campaigns assigned to them
     if (payload.role === 'agent') {
@@ -40,7 +46,7 @@ export async function GET(req: NextRequest) {
          JOIN campaign_assignments ca ON ca.campaign_id = c.id AND ca.agent_id = ?
          WHERE c.workspace_id = ?
          ORDER BY c.created_at DESC`,
-        [payload.userId, payload.workspaceId]
+        [...dateParams, payload.userId, payload.workspaceId]
       );
       return apiSuccess(campaigns);
     }
@@ -52,7 +58,7 @@ export async function GET(req: NextRequest) {
        ${statsSub}
        WHERE c.workspace_id = ?
        ORDER BY c.created_at DESC`,
-      [payload.workspaceId]
+      [...dateParams, payload.workspaceId]
     );
     return apiSuccess(campaigns);
   } catch (err: unknown) {

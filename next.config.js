@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   // Allow images from WhatsApp CDN and other sources
   images: {
-    domains: ['lookaside.fbsbx.com', 'scontent.whatsapp.net'],
+    domains: ['lookaside.fbsbx.com', 'scontent.whatsapp.net', 'images.unsplash.com'],
   },
   // Required for socket.io
   webpack: (config) => {

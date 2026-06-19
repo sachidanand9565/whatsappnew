@@ -142,6 +142,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return apiSuccess({ updated: true });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === 'UNAUTHORIZED') return apiError('Unauthorized', 401);
+    console.error('[contacts PUT] failed:', err);
     return apiError('Server error', 500);
   }
 }

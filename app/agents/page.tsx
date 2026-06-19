@@ -84,10 +84,10 @@ function AssignCampaignsModal({ agent, onClose }: { agent: Agent; onClose: () =>
   );
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-white w-full sm:rounded-2xl sm:max-w-lg shadow-2xl flex flex-col max-h-[92vh] rounded-t-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-start justify-between">
+        <div className="px-5 py-4 sm:px-6 border-b border-gray-200 flex items-start justify-between flex-shrink-0">
           <div>
             <h2 className="font-bold text-gray-900">Assign Campaigns</h2>
             <div className="flex items-center gap-2 mt-1">
@@ -106,13 +106,13 @@ function AssignCampaignsModal({ agent, onClose }: { agent: Agent; onClose: () =>
         </div>
 
         {/* Search */}
-        <div className="px-6 py-3 border-b border-gray-100">
+        <div className="px-5 py-3 sm:px-6 border-b border-gray-100 flex-shrink-0">
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 focus-within:text-emerald-500 transition-colors" />
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 focus-within:text-emerald-500 transition-colors" />
             <input
               type="text" placeholder="Search campaigns…"
               value={search} onChange={(e) => setSearch(e.target.value)}
-              className="search-input"
+              className="search-input !pl-10"
             />
             {search && (
               <button onClick={() => setSearch('')}
@@ -124,7 +124,7 @@ function AssignCampaignsModal({ agent, onClose }: { agent: Agent; onClose: () =>
         </div>
 
         {/* Campaign list */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+        <div className="flex-1 overflow-y-auto px-5 py-3 sm:px-6 space-y-2">
           {loading ? (
             <p className="text-center text-gray-400 py-10 text-sm">Loading campaigns…</p>
           ) : filtered.length === 0 ? (
@@ -176,8 +176,8 @@ function AssignCampaignsModal({ agent, onClose }: { agent: Agent; onClose: () =>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
-          <span className="text-xs text-gray-400">
+        <div className="px-5 py-4 sm:px-6 border-t border-gray-150 flex items-center justify-between bg-slate-50/50 flex-shrink-0">
+          <span className="text-xs text-gray-450 font-medium">
             {assignedIds.length} campaign{assignedIds.length !== 1 ? 's' : ''} assigned
           </span>
           <button onClick={onClose} className="btn-primary text-sm px-6">Done</button>
@@ -275,26 +275,33 @@ export default function AgentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-900">Agents</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage team members and their access levels</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Agents</h1>
+            {!loading && agents.length > 0 && (
+              <span className="bg-slate-100 text-slate-650 text-xs font-bold px-2.5 py-0.5 rounded-full border border-slate-200">
+                {agents.length}
+              </span>
+            )}
+          </div>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Manage team members and their access levels</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="btn-primary flex items-center gap-2 self-start"
+          className="btn-primary flex items-center justify-center gap-2 text-xs sm:text-sm px-4 py-2.5 rounded-xl font-bold transition-all shadow-[0_4px_12px_rgba(22,163,74,0.15)] hover:shadow-[0_4px_20px_rgba(22,163,74,0.3)] active:translate-y-0.5 shrink-0"
         >
           <Plus size={16} /> Add Agent
         </button>
       </div>
 
       {/* Search */}
-      <div className="relative max-w-sm">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 focus-within:text-emerald-500 transition-colors" />
+      <div className="relative w-full sm:max-w-sm">
+        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 focus-within:text-emerald-500 transition-colors" />
         <input
           type="text" placeholder="Search by name or email…"
           value={search} onChange={(e) => setSearch(e.target.value)}
-          className="search-input"
+          className="search-input !pl-10"
         />
         {search && (
           <button onClick={() => setSearch('')}
@@ -305,7 +312,7 @@ export default function AgentsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="md:bg-white md:rounded-xl md:border md:border-gray-200 overflow-hidden md:shadow-sm">
         {loading ? (
           <div className="flex items-center justify-center py-16 text-gray-400">Loading…</div>
         ) : filtered.length === 0 ? (
@@ -314,144 +321,217 @@ export default function AgentsPage() {
             <p className="text-sm">No agents yet. Add your first agent.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Agent</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Email</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Phone</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Role</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map((agent) => (
-                  <tr key={agent.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-whatsapp-teal flex items-center justify-center text-white font-semibold text-sm">
-                          {agent.name.charAt(0).toUpperCase()}
-                        </div>
-                        <span className="font-medium text-gray-900">{agent.name}</span>
+          <>
+            {/* Mobile Card List (shown on mobile, hidden on desktop/tablet) */}
+            <div className="block md:hidden space-y-4">
+              {filtered.map((agent) => (
+                <div key={agent.id} className="glass-card hover:bg-white/95 hover:border-slate-300/80 bg-white/80 p-5 space-y-4 border border-slate-200/60 shadow-sm relative overflow-hidden transition-all duration-300">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-600 to-emerald-500 flex items-center justify-center text-white font-bold text-base shadow-[0_2px_8px_rgba(22,163,74,0.15)]">
+                        {agent.name.charAt(0).toUpperCase()}
                       </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{agent.email}</td>
-                    <td className="px-4 py-3 text-gray-600">{agent.phone || '—'}</td>
-                    <td className="px-4 py-3">
-                      <select
-                        value={agent.workspace_role}
-                        onChange={(e) => changeRole(agent, e.target.value as 'manager' | 'agent')}
-                        className={`text-xs font-semibold px-2 py-1 rounded-full border-0 cursor-pointer ${ROLE_BADGE[agent.workspace_role]}`}
-                      >
-                        <option value="agent">Agent</option>
-                        <option value="manager">Manager</option>
-                      </select>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button onClick={() => toggleStatus(agent)}>
-                        {agent.is_active ? (
-                          <ToggleRight size={22} className="text-green-500" />
-                        ) : (
-                          <ToggleLeft size={22} className="text-gray-400" />
-                        )}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        {/* Filter / Assign Campaigns icon */}
-                        <button
-                          onClick={() => setAssignAgent(agent)}
-                          title="Assign campaigns"
-                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                        >
-                          <SlidersHorizontal size={15} />
-                        </button>
-                        {/* Delete */}
-                        <button
-                          onClick={() => deleteAgent(agent)}
-                          title="Remove agent"
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                      <div className="min-w-0">
+                        <p className="font-extrabold text-slate-800 text-sm leading-snug">{agent.name}</p>
+                        <p className="text-xs text-slate-400 mt-0.5 truncate">{agent.email}</p>
                       </div>
-                    </td>
+                    </div>
+                    <button onClick={() => toggleStatus(agent)} className="focus:outline-none select-none transition-transform duration-205 active:scale-95">
+                      {agent.is_active ? (
+                        <ToggleRight size={30} className="text-green-600 transition-colors duration-200" />
+                      ) : (
+                        <ToggleLeft size={30} className="text-slate-350 transition-colors duration-200" />
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-100 text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block mb-1">WhatsApp Phone</span>
+                      <span className="font-semibold text-slate-700">{agent.phone || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block mb-1">Role / Access</span>
+                      <div className="relative inline-block w-full">
+                        <select
+                          value={agent.workspace_role}
+                          onChange={(e) => changeRole(agent, e.target.value as 'manager' | 'agent')}
+                          className={`text-xs font-bold px-3 py-1 rounded-xl border border-slate-200 cursor-pointer bg-white w-full focus:outline-none focus:ring-1 focus:ring-green-500/20 ${ROLE_BADGE[agent.workspace_role]}`}
+                        >
+                          <option value="agent" className="bg-white text-slate-700">Agent</option>
+                          <option value="manager" className="bg-white text-slate-700">Manager</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-1">
+                    <button
+                      onClick={() => setAssignAgent(agent)}
+                      title="Assign campaigns"
+                      className="flex-1 flex items-center justify-center gap-2 text-xs font-bold bg-white hover:bg-slate-50 text-slate-650 px-3 py-2.5 rounded-xl border border-slate-200 transition-all duration-200 shadow-sm active:translate-y-0.5"
+                    >
+                      <SlidersHorizontal size={13} className="text-slate-400" /> Assign Campaigns
+                    </button>
+                    <button
+                      onClick={() => deleteAgent(agent)}
+                      title="Remove agent"
+                      className="flex items-center justify-center gap-2 text-xs font-bold bg-rose-50/50 hover:bg-rose-100/70 text-rose-600 px-3.5 py-2.5 rounded-xl border border-rose-200/50 transition-all duration-200 shadow-sm active:translate-y-0.5"
+                    >
+                      <Trash2 size={13} /> Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">Agent</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">Email</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">Phone</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">Role</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filtered.map((agent) => (
+                    <tr key={agent.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-whatsapp-teal flex items-center justify-center text-white font-semibold text-sm">
+                            {agent.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="font-medium text-gray-900">{agent.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{agent.email}</td>
+                      <td className="px-4 py-3 text-gray-600">{agent.phone || '—'}</td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={agent.workspace_role}
+                          onChange={(e) => changeRole(agent, e.target.value as 'manager' | 'agent')}
+                          className={`text-xs font-semibold px-2 py-1 rounded-full border-0 cursor-pointer ${ROLE_BADGE[agent.workspace_role]}`}
+                        >
+                          <option value="agent">Agent</option>
+                          <option value="manager">Manager</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => toggleStatus(agent)}>
+                          {agent.is_active ? (
+                            <ToggleRight size={22} className="text-green-500" />
+                          ) : (
+                            <ToggleLeft size={22} className="text-gray-400" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          {/* Filter / Assign Campaigns icon */}
+                          <button
+                            onClick={() => setAssignAgent(agent)}
+                            title="Assign campaigns"
+                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          >
+                            <SlidersHorizontal size={15} />
+                          </button>
+                          {/* Delete */}
+                          <button
+                            onClick={() => deleteAgent(agent)}
+                            title="Remove agent"
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
       {/* Create Agent Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-5">Create Agent</h2>
-            <form onSubmit={createAgent} className="space-y-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <form onSubmit={createAgent} className="bg-white w-full sm:rounded-2xl sm:max-w-md shadow-2xl flex flex-col max-h-[92vh] rounded-t-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100">
+            <div className="px-6 py-4 border-b border-slate-200/80 flex items-center justify-between flex-shrink-0">
+              <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Create Agent</h2>
+              <button type="button" onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Agent&apos;s Name</label>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Agent&apos;s Name</label>
                 <input
                   type="text" required placeholder="Full name"
                   value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="input"
+                  className="input text-sm"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Agent&apos;s Email</label>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Agent&apos;s Email</label>
                 <input
                   type="email" required placeholder="agent@company.com"
                   value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="input"
+                  className="input text-sm"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number (optional)</label>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">WhatsApp Number (optional)</label>
                 <div className="flex gap-2">
-                  <span className="input w-auto px-3 flex items-center text-gray-500 bg-gray-50">+91</span>
+                  <span className="border border-slate-200 rounded-xl px-3.5 flex items-center text-slate-500 bg-slate-50 text-sm font-semibold">+91</span>
                   <input
                     type="tel" placeholder="Agent's WhatsApp Number"
                     value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    className="input flex-1"
+                    className="input flex-1 text-sm"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Role</label>
                 <select
                   value={form.role}
                   onChange={(e) => setForm({ ...form, role: e.target.value as 'manager' | 'agent' })}
-                  className="input"
+                  className="input text-sm"
                 >
                   <option value="agent">Agent</option>
                   <option value="manager">Manager</option>
                 </select>
               </div>
-              <div className="border-t pt-4">
-                <p className="text-sm font-medium text-gray-700 mb-3">Login Details</p>
+              <div className="border-t border-slate-100 pt-4">
+                <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">Login Details</p>
                 <input
                   type="password" required placeholder="Password"
                   value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  className="input"
+                  className="input text-sm"
                 />
               </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button type="submit" disabled={saving} className="flex-1 btn-primary">
-                  {saving ? 'Creating…' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-150 bg-slate-50/50 flex gap-3 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors bg-white font-sans"
+              >
+                Cancel
+              </button>
+              <button type="submit" disabled={saving} className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-bold disabled:opacity-60 transition-colors shadow-sm font-sans">
+                {saving ? 'Creating…' : 'Create'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

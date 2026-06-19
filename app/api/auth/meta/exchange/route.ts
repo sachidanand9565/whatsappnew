@@ -25,6 +25,10 @@ export async function POST(req: NextRequest) {
     if (tokenData.error) return apiError(`Meta: ${tokenData.error.message}`, 400);
 
     const shortToken = tokenData.access_token as string;
+    if (!shortToken) {
+      console.error('Meta token exchange: no access_token in response', tokenData);
+      return apiError('Meta did not return an access token for this code', 400);
+    }
 
     // Extend to long-lived token (60 days)
     const extendRes = await fetch(
@@ -32,6 +36,9 @@ export async function POST(req: NextRequest) {
       `?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${shortToken}`
     );
     const extendData = await extendRes.json();
+    if (extendData.error) {
+      console.error('Meta long-lived token exchange failed, falling back to short token:', extendData.error);
+    }
     const finalToken = extendData.access_token || shortToken;
 
     return NextResponse.json({ success: true, access_token: finalToken });

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { apiFetch } from '@/hooks/useApi';
-import { Search, CheckCircle, MapPin, User, FileText, Download, Music, Send, LayoutTemplate, X, Loader2 } from 'lucide-react';
+import { Search, CheckCircle, MapPin, User, FileText, Download, Music, Send, LayoutTemplate, X, Loader2, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Contact, Message } from '@/types';
 
@@ -127,10 +127,10 @@ export default function HistoryPage() {
   const getColor = (ch: string) => avatarColors[ch.charCodeAt(0) % avatarColors.length];
 
   return (
-    <div className="h-[calc(100vh-5rem)] flex border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+    <div className="h-full lg:h-[calc(100vh-5rem)] flex border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
 
       {/* Left: Contact list */}
-      <div className="w-72 border-r border-gray-200 flex flex-col flex-shrink-0">
+      <div className={`w-full lg:w-72 border-r border-gray-200 flex flex-col flex-shrink-0 ${selected ? 'hidden lg:flex' : 'flex'}`}>
         <div className="p-3 border-b border-gray-100">
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -149,7 +149,7 @@ export default function HistoryPage() {
             return (
               <button key={c.id} onClick={() => setSelected(c)}
                 className={`w-full text-left px-3 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors flex items-center gap-3
-                  ${selected?.id === c.id ? 'bg-green-50 border-l-2 border-l-whatsapp-green' : ''}`}>
+                  ${selected?.id === c.id ? 'bg-green-50 border-l-2 border-l-green-600' : ''}`}>
                 <div className={`w-10 h-10 rounded-full ${getColor(initial)} text-white flex items-center justify-center font-bold text-sm flex-shrink-0`}>
                   {initial}
                 </div>
@@ -172,8 +172,15 @@ export default function HistoryPage() {
 
       {/* Middle: Chat (read-only) */}
       {selected ? (
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className={`flex-1 flex flex-col min-w-0 ${selected ? 'flex' : 'hidden lg:flex'}`}>
           <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-3 bg-white">
+            {/* Back button for mobile view (APK feel) */}
+            <button 
+              onClick={() => setSelected(null)} 
+              className="lg:hidden p-1.5 hover:bg-slate-100 rounded-full text-slate-500 mr-1"
+            >
+              <ArrowLeft size={20} />
+            </button>
             <div className={`w-9 h-9 rounded-full ${getColor((selected.name || selected.phone).charAt(0).toUpperCase())} text-white flex items-center justify-center font-bold text-sm`}>
               {(selected.name || selected.phone).charAt(0).toUpperCase()}
             </div>
@@ -259,7 +266,7 @@ export default function HistoryPage() {
             <p className="text-xs text-gray-400">24h session expired — send a template to re-engage</p>
             <button
               onClick={() => { loadTemplates(); setShowTemplates((v) => !v); }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-whatsapp-green hover:bg-green-600 text-white text-xs font-semibold rounded-lg transition-colors flex-shrink-0">
+              className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors flex-shrink-0">
               <LayoutTemplate size={13} />
               Send Template
             </button>

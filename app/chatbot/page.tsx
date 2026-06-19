@@ -43,20 +43,20 @@ export default function ChatbotPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 pb-24 lg:pb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Chatbot Rules</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Auto-reply to incoming WhatsApp messages based on keywords</p>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Chatbot Rules</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Auto-reply to incoming WhatsApp messages based on keywords</p>
         </div>
         <button onClick={() => { setEditRule(null); setShowModal(true); }}
-          className="btn-primary flex items-center gap-2 text-sm">
+          className="btn-primary flex items-center justify-center gap-2 text-sm font-bold transition-all shadow-[0_4px_12px_rgba(22,163,74,0.15)] hover:shadow-[0_4px_20px_rgba(22,163,74,0.3)] active:translate-y-0.5 shrink-0">
           <Plus size={16} /> Add Rule
         </button>
       </div>
 
       {/* How it works */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs sm:text-sm text-blue-800 shadow-sm">
         <p className="font-semibold mb-1">How it works:</p>
         <p>When a contact sends a message, the bot checks rules in priority order (highest first). First matching rule sends the reply automatically.</p>
       </div>
@@ -72,38 +72,55 @@ export default function ChatbotPage() {
       ) : (
         <div className="space-y-3">
           {rules.map((rule) => (
-            <div key={rule.id} className={`card transition-opacity ${rule.is_active ? '' : 'opacity-50'}`}>
-              <div className="flex items-start gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+            <div key={rule.id} className={`card p-4 sm:p-6 transition-all hover:shadow-md border border-slate-200/60 ${rule.is_active ? 'bg-white' : 'bg-slate-50/50 opacity-60'}`}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                
+                {/* Rule Main Details */}
+                <div className="flex-1 min-w-0 space-y-2.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200/40">
                       {TRIGGER_LABELS[rule.trigger_type] || rule.trigger_type}
                     </span>
-                    <span className="text-xs text-gray-400">Priority: {rule.priority}</span>
+                    <span className="text-xs text-slate-400 font-semibold">Priority: {rule.priority}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-sm">
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-1.5 font-mono text-yellow-800">
+                  
+                  {/* Flow Trigger -> Response visualization */}
+                  <div className="flex flex-col gap-2 xs:flex-row xs:items-center xs:gap-3 text-sm">
+                    <div className="bg-yellow-50/60 border border-yellow-200/80 rounded-xl px-3 py-2 font-mono text-yellow-800 text-xs font-semibold w-fit">
                       &quot;{rule.trigger_value || '*'}&quot;
                     </div>
-                    <span className="text-gray-400">→</span>
-                    <div className="bg-whatsapp-light border border-gray-200 rounded-lg px-3 py-1.5 text-gray-800 max-w-xs truncate">
+                    <span className="text-slate-300 font-bold hidden xs:inline">{"→"}</span>
+                    <div className="bg-green-50/50 border border-green-200/60 rounded-xl px-3 py-2 text-slate-800 text-xs font-medium max-w-full sm:max-w-xs truncate">
                       {rule.response_text || '[Template]'}
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button onClick={() => toggleRule(rule)} title={rule.is_active ? 'Disable' : 'Enable'}>
-                    {rule.is_active
-                      ? <ToggleRight size={22} className="text-whatsapp-green" />
-                      : <ToggleLeft size={22} className="text-gray-400" />}
-                  </button>
-                  <button onClick={() => { setEditRule(rule); setShowModal(true); }}
-                    className="text-blue-500 hover:text-blue-700 text-sm font-medium">Edit</button>
-                  <button onClick={() => deleteRule(rule.id)}
-                    className="text-red-400 hover:text-red-600">
-                    <Trash2 size={16} />
-                  </button>
+
+                {/* Actions Section */}
+                <div className="flex items-center justify-between sm:justify-end gap-3 pt-3 border-t border-slate-100 sm:border-none sm:pt-0 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => toggleRule(rule)} title={rule.is_active ? 'Disable' : 'Enable'} className="p-1 hover:bg-slate-50 rounded-lg transition-colors">
+                      {rule.is_active
+                        ? <ToggleRight size={26} className="text-green-600" />
+                        : <ToggleLeft size={26} className="text-slate-400" />}
+                    </button>
+                    <span className="text-xs text-slate-400 font-bold sm:hidden">
+                      {rule.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => { setEditRule(rule); setShowModal(true); }}
+                      className="text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-blue-200/50">
+                      Edit
+                    </button>
+                    <button onClick={() => deleteRule(rule.id)}
+                      className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all border border-slate-200/60">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
+
               </div>
             </div>
           ))}
@@ -157,14 +174,14 @@ function RuleModal({ rule, onClose, onSaved }: {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="font-bold text-lg">{rule ? 'Edit Rule' : 'New Rule'}</h2>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-slate-200/80">
+          <h2 className="font-extrabold text-slate-900 text-lg tracking-tight">{rule ? 'Edit Rule' : 'New Rule'}</h2>
         </div>
         <form onSubmit={save} className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Trigger Type</label>
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Trigger Type</label>
             <select value={form.trigger_type} onChange={(e) => setForm({ ...form, trigger_type: e.target.value as 'exact' | 'keyword' | 'contains' | 'starts_with' | 'any' })} className="input">
               <option value="keyword">Contains keyword</option>
               <option value="exact">Exact match</option>
@@ -175,23 +192,23 @@ function RuleModal({ rule, onClose, onSaved }: {
 
           {form.trigger_type !== 'any' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Trigger Value</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Trigger Value</label>
               <input value={form.trigger_value} onChange={(e) => setForm({ ...form, trigger_value: e.target.value })}
-                className="input" placeholder={`e.g. "hi", "price", "book"`} required />
+                className="input text-sm" placeholder={`e.g. "hi", "price"`} required />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Response</label>
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Response Text</label>
             <textarea value={form.response_text} onChange={(e) => setForm({ ...form, response_text: e.target.value })}
-              className="input resize-none" rows={4}
+              className="input resize-none text-sm" rows={4}
               placeholder="Hi! Thanks for reaching out. How can we help you?" required />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Priority (higher = checked first)</label>
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Priority (higher = checked first)</label>
             <input type="number" value={form.priority} onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}
-              className="input" min={0} max={100} />
+              className="input text-sm" min={0} max={100} />
           </div>
 
           <div className="flex gap-3 pt-2">

@@ -32,17 +32,19 @@ export default function CampaignsPage() {
   const [deletingId, setDeletingId]         = useState<number | null>(null);
   const [assignCampaign, setAssignCampaign] = useState<Campaign | null>(null);
   const [userRole, setUserRole]             = useState('admin');
+  const [dateFilter, setDateFilter]         = useState('');
 
   useEffect(() => {
     setUserRole(localStorage.getItem('userRole') || 'admin');
   }, []);
 
-  function load() {
+  function load(date?: string) {
     setLoading(true);
-    apiFetch('/api/campaigns').then((r) => setCampaigns(r.data || [])).finally(() => setLoading(false));
+    const qs = date ? `?date=${date}` : '';
+    apiFetch(`/api/campaigns${qs}`).then((r) => setCampaigns(r.data || [])).finally(() => setLoading(false));
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(dateFilter); }, [dateFilter]);
 
   async function deleteCampaign(id: number, name: string) {
     if (!confirm(`Delete campaign "${name}"? Ye action undo nahi ho sakta.`)) return;
@@ -56,7 +58,7 @@ export default function CampaignsPage() {
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || 'Delete failed', { duration: 6000 }); return; }
       toast.success('Campaign deleted');
-      load();
+      load(dateFilter);
     } catch {
       toast.error('Delete failed');
     } finally {
@@ -68,7 +70,7 @@ export default function CampaignsPage() {
     try {
       const r = await apiFetch(`/api/campaigns/${encryptId(id)}/launch`, { method: 'POST' });
       toast.success(r.data?.message || 'Campaign launched!');
-      load();
+      load(dateFilter);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Launch failed');
     }
@@ -114,27 +116,51 @@ export default function CampaignsPage() {
         )}
       </div>
 
-      {/* Type filter tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-        {ALL_TYPES.map((t) => {
-          const cfg = t === 'all' ? null : TYPE_CONFIG[t];
-          const isActive = filterType === t;
-          return (
+      {/* Type filter tabs + Date filter */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+          {ALL_TYPES.map((t) => {
+            const cfg = t === 'all' ? null : TYPE_CONFIG[t];
+            const isActive = filterType === t;
+            return (
+              <button
+                key={t}
+                onClick={() => setFilterType(t)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {cfg && <span className={cfg.color}>{cfg.icon}</span>}
+                <span className="capitalize">{t === 'all' ? 'All' : cfg?.label}</span>
+                <span className={`text-xs rounded-full px-1.5 py-0.5 font-semibold ${
+                  isActive ? 'bg-gray-100 text-gray-600' : 'bg-white text-gray-400'
+                }`}>{counts[t]}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-400 font-medium">
+            {dateFilter ? `Stats for ${dateFilter}` : 'Stats: All time'}
+          </label>
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            max={new Date().toISOString().slice(0, 10)}
+            className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-700"
+          />
+          {dateFilter && (
             <button
-              key={t}
-              onClick={() => setFilterType(t)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
-              }`}
+              onClick={() => setDateFilter('')}
+              className="text-xs text-gray-400 hover:text-red-500 px-1.5"
+              title="Clear date filter"
             >
-              {cfg && <span className={cfg.color}>{cfg.icon}</span>}
-              <span className="capitalize">{t === 'all' ? 'All' : cfg?.label}</span>
-              <span className={`text-xs rounded-full px-1.5 py-0.5 font-semibold ${
-                isActive ? 'bg-gray-100 text-gray-600' : 'bg-white text-gray-400'
-              }`}>{counts[t]}</span>
+              <X size={14} />
             </button>
-          );
-        })}
+          )}
+        </div>
       </div>
 
       {/* Campaign cards */}
@@ -181,7 +207,7 @@ export default function CampaignsPage() {
                   </div>
 
                   {/* Stats — counts from campaign_contacts (accurate) */}
-                  <div className="flex gap-6 text-sm">
+                  <div className="grid grid-cols-5 gap-1 md:flex md:gap-6 text-sm w-full md:w-auto mt-3 md:mt-0">
                     {[
                       { label: 'Total',     value: c.total_contacts,  color: 'text-gray-900'   },
                       { label: 'Sent',      value: ccSent(c),         color: 'text-blue-600'   },
@@ -189,9 +215,9 @@ export default function CampaignsPage() {
                       { label: 'Read',      value: readRate(c),       color: 'text-purple-600' },
                       { label: 'Failed',    value: ccFailed(c),       color: 'text-red-600'    },
                     ].map(({ label, value, color }) => (
-                      <div key={label} className="text-center">
-                        <p className={`font-semibold ${color}`}>{value}</p>
-                        <p className="text-gray-400 text-xs">{label}</p>
+                      <div key={label} className="text-center min-w-0">
+                        <p className={`font-semibold ${color} truncate text-xs sm:text-sm`}>{value}</p>
+                        <p className="text-gray-400 text-[10px] sm:text-xs truncate">{label}</p>
                       </div>
                     ))}
                   </div>
@@ -253,7 +279,7 @@ export default function CampaignsPage() {
       )}
 
       {showModal && (
-        <CampaignWizard onClose={() => setShowModal(false)} onSaved={() => { setShowModal(false); load(); }} />
+        <CampaignWizard onClose={() => setShowModal(false)} onSaved={() => { setShowModal(false); load(dateFilter); }} />
       )}
 
       {assignCampaign && (

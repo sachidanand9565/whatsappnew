@@ -373,7 +373,7 @@ export default function NodePanel({ node, onUpdate, onDelete, onClose, triggerKe
   };
 
   return (
-    <div className="w-72 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
+    <div className="w-full h-full flex flex-col overflow-hidden">
       {/* Header */}
       <div className={`${TYPE_COLORS[node.type || ''] || 'bg-gray-500'} px-4 py-3 flex items-center justify-between`}>
         <span className="text-white font-bold text-sm capitalize">

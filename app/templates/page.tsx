@@ -170,25 +170,26 @@ export default function TemplatesPage() {
     <div className="space-y-5">
 
       {/* ── Page header ─────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Message Templates</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Message Templates</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
             Templates require Meta approval before use in campaigns.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Sync button */}
           <button
             onClick={syncFromMeta}
             disabled={syncing}
             title="Sync status & category from Meta"
-            className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-60">
-            <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
+            className="btn-secondary flex items-center justify-center gap-2 text-xs sm:text-sm px-3.5 py-2 disabled:opacity-60 flex-1 sm:flex-none">
+            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
             {syncing ? 'Syncing...' : 'Sync from Meta'}
           </button>
-          <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2 text-sm">
-            <Plus size={16} /> New Template
+          <button onClick={() => setShowCreate(true)} 
+            className="btn-primary flex items-center justify-center gap-2 text-xs sm:text-sm px-3.5 py-2 flex-1 sm:flex-none">
+            <Plus size={15} /> New Template
           </button>
         </div>
       </div>
@@ -196,12 +197,12 @@ export default function TemplatesPage() {
       {/* ── Tabs ────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Tab bar */}
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-gray-200 overflow-x-auto scrollbar-none whitespace-nowrap">
           {TABS.map((tab) => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium border-b-2 transition-colors
+              className={`flex items-center gap-2 px-4 py-3.5 text-sm font-medium border-b-2 transition-colors flex-shrink-0
                 ${activeTab === tab.key
-                  ? 'border-green-600 text-green-700 bg-green-50'
+                  ? 'border-green-600 text-green-700 bg-green-50/50'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
               {tab.label}
               <span className={`text-xs px-2 py-0.5 rounded-full font-semibold
@@ -212,7 +213,7 @@ export default function TemplatesPage() {
           ))}
         </div>
 
-        {/* Table */}
+        {/* Content */}
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="animate-spin w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full" />
@@ -228,154 +229,254 @@ export default function TemplatesPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left px-5 py-3 font-semibold text-gray-600 w-[220px]">Template Name</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Category</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Language</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Type</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Variables</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Buttons</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Status</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600">Created</th>
-                  <th className="text-center px-4 py-3 font-semibold text-gray-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map((t) => {
-                  const sc      = STATUS_CONFIG[t.status] || STATUS_CONFIG.PENDING;
-                  const buttons: Button[] = parseJsonColumn<Button[]>(t.buttons, []);
-                  const vars:    string[] = parseJsonColumn<string[]>(t.variables, []);
-                  return (
-                    <tr key={t.id} className="hover:bg-gray-50 transition-colors group">
-
-                      {/* Name */}
-                      <td className="px-5 py-3.5">
-                        <p className="font-semibold text-gray-900">{t.name}</p>
+          <>
+            {/* Mobile Card List (shown on mobile, hidden on desktop/tablet) */}
+            <div className="block lg:hidden divide-y divide-gray-100">
+              {filtered.map((t) => {
+                const sc      = STATUS_CONFIG[t.status] || STATUS_CONFIG.PENDING;
+                const buttons: Button[] = parseJsonColumn<Button[]>(t.buttons, []);
+                const vars:    string[] = parseJsonColumn<string[]>(t.variables, []);
+                return (
+                  <div key={t.id} className="p-4 space-y-3 bg-white hover:bg-slate-50/50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0 flex-1 pr-3">
+                        <p className="font-bold text-slate-800 text-sm sm:text-base truncate">{t.name}</p>
                         {t.meta_template_id && (
-                          <p className="text-xs text-gray-400 font-mono mt-0.5">ID: {t.meta_template_id}</p>
+                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {t.meta_template_id}</p>
                         )}
-                      </td>
+                      </div>
+                      <span className={`badge border flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${sc.bg} ${sc.color} ${sc.border} shrink-0`}>
+                        {sc.icon} {t.status}
+                      </span>
+                    </div>
 
-                      {/* Category */}
-                      <td className="px-4 py-3.5">
-                        <span className={`badge ${CATEGORY_COLORS[t.category] || 'bg-gray-100 text-gray-600'}`}>
-                          {t.category}
-                        </span>
-                      </td>
-
-                      {/* Language */}
-                      <td className="px-4 py-3.5 text-gray-600 uppercase text-xs font-medium">
+                    {/* Badges/Info row */}
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      <span className={`badge text-[10px] ${CATEGORY_COLORS[t.category] || 'bg-gray-100 text-gray-600'}`}>
+                        {t.category}
+                      </span>
+                      <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold uppercase">
                         {t.language}
-                      </td>
+                      </span>
+                      {t.header_type && t.header_type !== 'NONE' && (
+                        <span className="badge text-[10px] bg-slate-100 text-slate-600">
+                          Header: {t.header_type}
+                        </span>
+                      )}
+                    </div>
 
-                      {/* Header type */}
-                      <td className="px-4 py-3.5">
-                        {t.header_type && t.header_type !== 'NONE' ? (
-                          <span className={`badge flex items-center gap-1.5 w-fit
-                            ${t.header_type === 'IMAGE'    ? 'bg-blue-100 text-blue-700' :
-                              t.header_type === 'DOCUMENT' ? 'bg-orange-100 text-orange-700' :
-                              t.header_type === 'VIDEO'    ? 'bg-purple-100 text-purple-700' :
-                                                             'bg-gray-100 text-gray-600'}`}>
-                            {t.header_type === 'IMAGE'    && <Image     size={11} />}
-                            {t.header_type === 'DOCUMENT' && <FileText  size={11} />}
-                            {t.header_type === 'VIDEO'    && <Video     size={11} />}
-                            {t.header_type === 'TEXT'     && <AlignLeft size={11} />}
-                            {t.header_type}
-                          </span>
-                        ) : (
-                          <span className="text-gray-300 text-xs">None</span>
-                        )}
-                      </td>
-
-                      {/* Variables */}
-                      <td className="px-4 py-3.5">
-                        {vars.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {vars.slice(0, 3).map((v, i) => (
-                              <span key={i} className="badge bg-purple-100 text-purple-700 font-mono">{v}</span>
+                    {/* Variables & Buttons */}
+                    {(vars.length > 0 || buttons.length > 0) && (
+                      <div className="space-y-1.5">
+                        {vars.length > 0 && (
+                          <div className="flex flex-wrap gap-1 items-center">
+                            <span className="text-[10px] text-slate-400 font-medium mr-1">Vars:</span>
+                            {vars.map((v, i) => (
+                              <span key={i} className="badge text-[9px] bg-purple-50 text-purple-700 font-mono">{v}</span>
                             ))}
-                            {vars.length > 3 && (
-                              <span className="badge bg-gray-100 text-gray-500">+{vars.length - 3}</span>
-                            )}
                           </div>
-                        ) : (
-                          <span className="text-gray-300 text-xs">—</span>
                         )}
-                      </td>
-
-                      {/* Buttons */}
-                      <td className="px-4 py-3.5">
-                        {buttons.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
+                        {buttons.length > 0 && (
+                          <div className="flex flex-wrap gap-1 items-center">
+                            <span className="text-[10px] text-slate-400 font-medium mr-1">Buttons:</span>
                             {buttons.map((b, i) => (
-                              <span key={i} className={`badge text-xs
-                                ${b.type === 'QUICK_REPLY'  ? 'bg-teal-100 text-teal-700' :
-                                  b.type === 'URL'           ? 'bg-blue-100 text-blue-700' :
-                                                               'bg-green-100 text-green-700'}`}>
-                                {b.type === 'URL'           && <Link2  size={10} className="mr-1 inline" />}
-                                {b.type === 'PHONE_NUMBER'  && <Phone  size={10} className="mr-1 inline" />}
-                                {b.type === 'QUICK_REPLY'   && <MessageSquare size={10} className="mr-1 inline" />}
+                              <span key={i} className="badge text-[9px] bg-slate-50 text-slate-600 border border-slate-200">
                                 {b.text}
                               </span>
                             ))}
                           </div>
-                        ) : (
-                          <span className="text-gray-300 text-xs">—</span>
                         )}
-                      </td>
+                      </div>
+                    )}
 
-                      {/* Status */}
-                      <td className="px-4 py-3.5">
-                        <span className={`badge border flex items-center gap-1 w-fit ${sc.bg} ${sc.color} ${sc.border}`}>
-                          {sc.icon}
-                          {t.status}
-                        </span>
-                      </td>
-
-                      {/* Created */}
-                      <td className="px-4 py-3.5 text-gray-400 text-xs whitespace-nowrap">
+                    {/* Footer & Actions */}
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-bold">
                         {new Date(t.created_at).toLocaleDateString('en-IN', {
                           day: '2-digit', month: 'short', year: 'numeric',
                         })}
-                      </td>
+                      </span>
+                      
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setPreviewTpl(t)}
+                          title="Preview"
+                          className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 rounded-lg transition-colors shadow-sm">
+                          <Eye size={12} /> Preview
+                        </button>
+                        <button
+                          onClick={() => setCopyTpl(t)}
+                          title="Copy template"
+                          className="inline-flex items-center gap-1 text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg transition-colors border border-slate-200">
+                          <Copy size={12} /> Copy
+                        </button>
+                        <button
+                          onClick={() => deleteTemplate(t.id, t.name)}
+                          disabled={deletingId === t.id}
+                          title="Delete template"
+                          className="inline-flex items-center gap-1 text-[10px] font-bold bg-red-50 hover:bg-red-100 text-red-600 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50 border border-red-100/50">
+                          {deletingId === t.id
+                            ? <div className="w-3 h-3 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                            : <Trash2 size={12} />}
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-                      {/* Actions */}
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            onClick={() => setPreviewTpl(t)}
-                            title="Preview"
-                            className="inline-flex items-center gap-1 text-xs font-medium bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 rounded-lg transition-colors">
-                            <Eye size={13} /> Preview
-                          </button>
-                          <button
-                            onClick={() => setCopyTpl(t)}
-                            title="Copy template"
-                            className="inline-flex items-center gap-1 text-xs font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 px-2.5 py-1.5 rounded-lg transition-colors">
-                            <Copy size={13} /> Copy
-                          </button>
-                          <button
-                            onClick={() => deleteTemplate(t.id, t.name)}
-                            disabled={deletingId === t.id}
-                            title="Delete template"
-                            className="inline-flex items-center gap-1 text-xs font-medium bg-red-100 hover:bg-red-200 text-red-700 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50">
-                            {deletingId === t.id
-                              ? <div className="w-3 h-3 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                              : <Trash2 size={13} />}
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+            {/* Desktop Table View */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left px-5 py-3 font-semibold text-gray-600 w-[220px]">Template Name</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Category</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Language</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Type</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Variables</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Buttons</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Status</th>
+                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Created</th>
+                    <th className="text-center px-4 py-3 font-semibold text-gray-600">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filtered.map((t) => {
+                    const sc      = STATUS_CONFIG[t.status] || STATUS_CONFIG.PENDING;
+                    const buttons: Button[] = parseJsonColumn<Button[]>(t.buttons, []);
+                    const vars:    string[] = parseJsonColumn<string[]>(t.variables, []);
+                    return (
+                      <tr key={t.id} className="hover:bg-gray-50 transition-colors group">
+  
+                        {/* Name */}
+                        <td className="px-5 py-3.5">
+                          <p className="font-semibold text-gray-900">{t.name}</p>
+                          {t.meta_template_id && (
+                            <p className="text-xs text-gray-400 font-mono mt-0.5">ID: {t.meta_template_id}</p>
+                          )}
+                        </td>
+  
+                        {/* Category */}
+                        <td className="px-4 py-3.5">
+                          <span className={`badge ${CATEGORY_COLORS[t.category] || 'bg-gray-100 text-gray-600'}`}>
+                            {t.category}
+                          </span>
+                        </td>
+  
+                        {/* Language */}
+                        <td className="px-4 py-3.5 text-gray-600 uppercase text-xs font-medium">
+                          {t.language}
+                        </td>
+  
+                        {/* Header type */}
+                        <td className="px-4 py-3.5">
+                          {t.header_type && t.header_type !== 'NONE' ? (
+                            <span className={`badge flex items-center gap-1.5 w-fit
+                              ${t.header_type === 'IMAGE'    ? 'bg-blue-100 text-blue-700' :
+                                t.header_type === 'DOCUMENT' ? 'bg-orange-100 text-orange-700' :
+                                t.header_type === 'VIDEO'    ? 'bg-purple-100 text-purple-700' :
+                                                               'bg-gray-100 text-gray-600'}`}>
+                              {t.header_type === 'IMAGE'    && <Image     size={11} />}
+                              {t.header_type === 'DOCUMENT' && <FileText  size={11} />}
+                              {t.header_type === 'VIDEO'    && <Video     size={11} />}
+                              {t.header_type === 'TEXT'     && <AlignLeft size={11} />}
+                              {t.header_type}
+                            </span>
+                          ) : (
+                            <span className="text-gray-300 text-xs">None</span>
+                          )}
+                        </td>
+  
+                        {/* Variables */}
+                        <td className="px-4 py-3.5">
+                          {vars.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {vars.slice(0, 3).map((v, i) => (
+                                <span key={i} className="badge bg-purple-100 text-purple-700 font-mono">{v}</span>
+                              ))}
+                              {vars.length > 3 && (
+                                <span className="badge bg-gray-100 text-gray-500">+{vars.length - 3}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-300 text-xs">—</span>
+                          )}
+                        </td>
+  
+                        {/* Buttons */}
+                        <td className="px-4 py-3.5">
+                          {buttons.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {buttons.map((b, i) => (
+                                <span key={i} className={`badge text-xs
+                                  ${b.type === 'QUICK_REPLY'  ? 'bg-teal-100 text-teal-700' :
+                                    b.type === 'URL'           ? 'bg-blue-100 text-blue-700' :
+                                                                 'bg-green-100 text-green-700'}`}>
+                                  {b.type === 'URL'           && <Link2  size={10} className="mr-1 inline" />}
+                                  {b.type === 'PHONE_NUMBER'  && <Phone  size={10} className="mr-1 inline" />}
+                                  {b.type === 'QUICK_REPLY'   && <MessageSquare size={10} className="mr-1 inline" />}
+                                  {b.text}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-gray-300 text-xs">—</span>
+                          )}
+                        </td>
+  
+                        {/* Status */}
+                        <td className="px-4 py-3.5">
+                          <span className={`badge border flex items-center gap-1 w-fit ${sc.bg} ${sc.color} ${sc.border}`}>
+                            {sc.icon}
+                            {t.status}
+                          </span>
+                        </td>
+  
+                        {/* Created */}
+                        <td className="px-4 py-3.5 text-gray-400 text-xs whitespace-nowrap">
+                          {new Date(t.created_at).toLocaleDateString('en-IN', {
+                            day: '2-digit', month: 'short', year: 'numeric',
+                          })}
+                        </td>
+  
+                        {/* Actions */}
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => setPreviewTpl(t)}
+                              title="Preview"
+                              className="inline-flex items-center gap-1 text-xs font-medium bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 rounded-lg transition-colors">
+                              <Eye size={13} /> Preview
+                            </button>
+                            <button
+                              onClick={() => setCopyTpl(t)}
+                              title="Copy template"
+                              className="inline-flex items-center gap-1 text-xs font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 px-2.5 py-1.5 rounded-lg transition-colors">
+                              <Copy size={13} /> Copy
+                            </button>
+                            <button
+                              onClick={() => deleteTemplate(t.id, t.name)}
+                              disabled={deletingId === t.id}
+                              title="Delete template"
+                              className="inline-flex items-center gap-1 text-xs font-medium bg-red-100 hover:bg-red-200 text-red-700 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                              {deletingId === t.id
+                                ? <div className="w-3 h-3 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                                : <Trash2 size={13} />}
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+  
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -639,30 +740,30 @@ function TemplateModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[96vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-bold text-gray-900">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200/80">
+          <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
             {isCopy ? `Copy Template — ${initialData?.name}` : 'Create WhatsApp Template'}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1"><X size={20} /></button>
         </div>
 
         <div className="flex flex-1 overflow-hidden">
 
           {/* ── Form (left) ─────────────────────────────────── */}
-          <form onSubmit={save} className="flex-1 overflow-y-auto p-6 space-y-5">
+          <form onSubmit={save} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
 
             {/* Name + Language */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="form-label">Template Name *</label>
                 <input value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })}
                   className="input" placeholder="order_confirmed" required />
-                <p className="text-xs text-gray-400 mt-1">Lowercase + underscores only</p>
+                <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Lowercase + underscores only</p>
               </div>
               <div>
                 <label className="form-label">Language *</label>
@@ -681,36 +782,38 @@ function TemplateModal({
             {/* Category */}
             <div>
               <label className="form-label">Category *</label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { value: 'MARKETING',      emoji: '📣', label: 'Marketing',      desc: 'Offers & promotions' },
                   { value: 'UTILITY',        emoji: '⚙️', label: 'Utility',        desc: 'Order, alerts, updates' },
                   { value: 'AUTHENTICATION', emoji: '🔐', label: 'Authentication', desc: 'OTP, login codes' },
                 ].map((c) => (
-                  <label key={c.value} className={`border-2 rounded-xl p-3 cursor-pointer transition-all
-                    ${form.category === c.value ? 'border-green-600 bg-green-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <label key={c.value} className={`border-2 rounded-xl p-3 cursor-pointer transition-all flex flex-row sm:flex-col items-center sm:items-start gap-3 sm:gap-1.5
+                    ${form.category === c.value ? 'border-green-600 bg-green-50/50' : 'border-slate-200 hover:border-slate-350 bg-white'}`}>
                     <input type="radio" name="category" value={c.value}
                       checked={form.category === c.value}
                       onChange={() => setForm({ ...form, category: c.value })} className="sr-only" />
-                    <div className="text-xl mb-1">{c.emoji}</div>
-                    <p className="font-semibold text-sm text-gray-900">{c.label}</p>
-                    <p className="text-xs text-gray-500">{c.desc}</p>
+                    <div className="text-xl shrink-0">{c.emoji}</div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-xs sm:text-sm text-slate-800 leading-tight">{c.label}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{c.desc}</p>
+                    </div>
                   </label>
                 ))}
               </div>
             </div>
 
             {/* Header */}
-            <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-              <label className="text-sm font-semibold text-gray-800">Header <span className="text-gray-400 font-normal">(optional)</span></label>
-              <div className="flex gap-2 flex-wrap">
+            <div className="border border-slate-200 rounded-xl p-4 space-y-3 bg-slate-50/20">
+              <label className="text-xs sm:text-sm font-bold text-slate-800">Header <span className="text-slate-400 font-normal">(optional)</span></label>
+              <div className="flex gap-1.5 flex-wrap">
                 {HEADER_TYPE_OPTIONS.map((opt) => (
                   <button key={opt.value} type="button"
                     onClick={() => setForm({ ...form, header_type: opt.value as TemplateForm['header_type'], header_content: '' })}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium border transition-all
                       ${form.header_type === opt.value
-                        ? 'bg-green-600 text-white border-blue-600'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+                        ? 'bg-green-600 text-white border-green-600'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-350'}`}>
                     {opt.icon} {opt.label}
                   </button>
                 ))}
@@ -818,7 +921,7 @@ function TemplateModal({
                           <button key={ut} type="button"
                             onClick={() => updateButton(i, { url_type: ut as 'static' | 'dynamic' })}
                             className={`flex-1 text-xs py-1.5 rounded-lg border font-medium transition-all
-                              ${btn.url_type === ut ? 'bg-green-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>
+                              ${btn.url_type === ut ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200'}`}>
                             {ut === 'static' ? 'Static URL' : 'Dynamic URL'}
                           </button>
                         ))}
@@ -840,7 +943,7 @@ function TemplateModal({
                   <MessageSquare size={13} /> + Quick Reply
                 </button>
                 <button type="button" onClick={() => addCTA('URL')}
-                  className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border-2 border-dashed border-blue-300 text-green-600 hover:bg-blue-50 font-medium">
+                  className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border-2 border-dashed border-blue-300 text-blue-600 hover:bg-blue-50 font-medium">
                   <Link2 size={13} /> + Visit Website
                 </button>
                 <button type="button" onClick={() => addCTA('PHONE_NUMBER')}

@@ -45,13 +45,16 @@ CREATE TABLE IF NOT EXISTS flow_sessions (
   updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   expires_at       TIMESTAMP NOT NULL,               -- auto expire after 24h
   completed_at     TIMESTAMP NULL DEFAULT NULL,
+  -- NULL unless status='active' — lets the unique key below allow unlimited
+  -- completed/expired/error history rows while still capping active sessions at 1
+  active_slot      TINYINT GENERATED ALWAYS AS (CASE WHEN status = 'active' THEN 1 ELSE NULL END) VIRTUAL,
 
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
   FOREIGN KEY (flow_id)      REFERENCES flows(id)      ON DELETE CASCADE,
   FOREIGN KEY (contact_id)   REFERENCES contacts(id)   ON DELETE CASCADE,
 
   -- One active session per contact per workspace
-  UNIQUE KEY uq_active_contact (workspace_id, contact_id, status),
+  UNIQUE KEY uq_active_contact (workspace_id, contact_id, active_slot),
   INDEX idx_contact_status  (contact_id, status),
   INDEX idx_expires         (expires_at),
   INDEX idx_workspace       (workspace_id, status)

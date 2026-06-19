@@ -105,6 +105,7 @@ export default function FlowBuilderPage() {
   const [keywords, setKeywords]   = useState<string[]>([]);
   const [kwInput, setKwInput]     = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [showPalette, setShowPalette]   = useState(false);
 
   // Load flow
   useEffect(() => {
@@ -233,74 +234,111 @@ export default function FlowBuilderPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-screen">
-      <div className="animate-spin w-8 h-8 border-4 border-whatsapp-green border-t-transparent rounded-full" />
+      <div className="animate-spin w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full" />
     </div>
   );
 
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col bg-gray-50">
 
-      {/* Top Bar */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 shadow-sm z-10">
-        <button onClick={() => router.push('/flows')}
-          className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
-          <ArrowLeft size={18} />
-        </button>
-
-        <div className="flex-1 min-w-0">
-          <h1 className="font-bold text-gray-900 truncate">{flow?.name || 'Flow Builder'}</h1>
-          <p className="text-xs text-gray-400">
-            {nodes.length} nodes · {edges.length} connections
-          </p>
+      {/* Top Bar (Responsive 1-row layout with compact styling on mobile, full-featured on desktop) */}
+      <div className="bg-white border-b border-slate-200 shadow-sm z-30 px-3 py-2 flex items-center justify-between h-14 md:h-16 flex-shrink-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <button onClick={() => router.push('/flows')}
+            className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-500 flex-shrink-0 transition-colors">
+            <ArrowLeft size={18} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h1 className="font-extrabold text-slate-900 text-xs sm:text-sm md:text-base truncate leading-tight">
+              {flow?.name || 'Flow Builder'}
+            </h1>
+            <p className="text-[9px] text-slate-400 font-bold tracking-wide mt-0.5 hidden sm:block">
+              {nodes.length} nodes · {edges.length} connections
+            </p>
+          </div>
         </div>
 
-        {/* Keywords button */}
-        <button onClick={() => setShowSettings(true)}
-          className="flex items-center gap-1.5 text-sm border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 text-gray-600">
-          <Zap size={14} className="text-yellow-500" />
-          Triggers ({keywords.length})
-        </button>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
+          {/* Keywords triggers button */}
+          <button onClick={() => setShowSettings(true)}
+            className="flex items-center justify-center gap-1.5 text-xs border border-slate-200 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl hover:bg-slate-50 text-slate-600 font-semibold shadow-sm transition-colors"
+            title={`Triggers: ${keywords.length}`}
+          >
+            <Zap size={13} className="text-yellow-500 fill-yellow-500" />
+            <span className="hidden sm:inline">Triggers</span>
+            <span className="bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[9px] font-bold">
+              {keywords.length}
+            </span>
+          </button>
 
-        {/* Active toggle */}
-        <button onClick={toggleActive}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${
-            flow?.is_active
-              ? 'bg-green-50 border-green-200 text-green-700'
-              : 'bg-gray-50 border-gray-200 text-gray-500'
-          }`}>
-          {flow?.is_active
-            ? <ToggleRight size={18} className="text-green-600" />
-            : <ToggleLeft  size={18} />}
-          {flow?.is_active ? 'Active' : 'Inactive'}
-        </button>
+          {/* Active toggle */}
+          <button onClick={toggleActive}
+            className={`flex items-center justify-center gap-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs font-bold border transition-colors ${
+              flow?.is_active
+                ? 'bg-green-50 border-green-200 text-green-700'
+                : 'bg-slate-50 border-slate-200 text-slate-500'
+            }`}
+            title={flow?.is_active ? 'Active' : 'Inactive'}
+          >
+            {flow?.is_active ? (
+              <>
+                <ToggleRight size={16} className="text-green-600" />
+                <span className="hidden sm:inline">Active</span>
+              </>
+            ) : (
+              <>
+                <ToggleLeft size={16} />
+                <span className="hidden sm:inline">Inactive</span>
+              </>
+            )}
+          </button>
 
-        <button onClick={save} disabled={saving}
-          className="flex items-center gap-2 bg-whatsapp-green hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-60 transition-colors">
-          <Save size={15} />
-          {saving ? 'Saving...' : 'Save'}
-        </button>
+          {/* Save Button */}
+          <button onClick={save} disabled={saving}
+            className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold disabled:opacity-60 transition-colors shadow-sm"
+          >
+            <Save size={13} />
+            <span>{saving ? 'Saving' : 'Save'}</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Left Palette */}
-        <div className="w-56 bg-white border-r border-gray-200 flex flex-col overflow-y-auto">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-4 pt-4 pb-2">Add Nodes</p>
+        {/* Left Palette (Sliding panel on mobile, standard sidebar on desktop) */}
+        {showPalette && (
+          <div 
+            className="md:hidden fixed inset-0 bg-black/35 z-20 backdrop-blur-sm" 
+            onClick={() => setShowPalette(false)} 
+          />
+        )}
+        <div className={`
+          fixed md:static top-[56px] bottom-0 md:top-auto md:bottom-auto left-0 z-30 w-56 bg-white border-r border-slate-200/60 flex flex-col overflow-y-auto transition-transform duration-200
+          ${showPalette ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        `}>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide px-4 pt-4 pb-2">Add Nodes</p>
           <div className="px-2 pb-4 space-y-3">
             {PALETTE.map(group => (
               <div key={group.group}>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 py-1">{group.group}</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1">{group.group}</p>
                 <div className="space-y-0.5">
                   {group.items.map(item => (
-                    <button key={item.type} onClick={() => addNode(item.type)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors text-left">
+                    <button 
+                      key={item.type} 
+                      onClick={() => { 
+                        addNode(item.type); 
+                        if (window.innerWidth < 768) setShowPalette(false); 
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors text-left"
+                    >
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                         style={{ backgroundColor: item.color + '18' }}>
                         <item.icon size={15} style={{ color: item.color }} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold text-gray-700">{item.label}</p>
-                        <p className="text-[10px] text-gray-400">{item.desc}</p>
+                        <p className="text-xs font-semibold text-slate-700">{item.label}</p>
+                        <p className="text-[10px] text-slate-400">{item.desc}</p>
                       </div>
                     </button>
                   ))}
@@ -330,9 +368,9 @@ export default function FlowBuilderPage() {
             snapGrid={[15, 15]}
           >
             <Background color="#e5e7eb" gap={20} />
-            <Controls />
+            <Controls position="top-left" />
             <MiniMap nodeColor={n => {
-              if (n.type === 'start')     return '#25D366';
+              if (n.type === 'start')     return '#22c55e';
               if (n.type === 'message')   return '#3B82F6';
               if (n.type === 'condition') return '#8B5CF6';
               if (n.type === 'end')       return '#EF4444';
@@ -341,16 +379,34 @@ export default function FlowBuilderPage() {
           </ReactFlow>
         </div>
 
-        {/* Right Panel — node settings */}
+        {/* Floating Toggle Button for Add Nodes sidebar (Mobile view only) */}
+        <button
+          onClick={() => setShowPalette(!showPalette)}
+          className="md:hidden absolute bottom-5 left-5 z-20 w-11 h-11 bg-green-600 hover:bg-green-700 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+          title="Add Node"
+        >
+          {showPalette ? <X size={20} /> : <Plus size={20} />}
+        </button>
+
+        {/* Right Panel — node settings (Sliding panel on mobile, standard sidebar on desktop) */}
         {selected && (
-          <NodePanel
-            node={nodes.find(n => n.id === selected.id) || selected}
-            onUpdate={(data) => updateNodeData(selected.id, data)}
-            onDelete={() => deleteNode(selected.id)}
-            onClose={() => setSelected(null)}
-            triggerKeywords={keywords}
-            onTriggerKeywordsChange={setKeywords}
-          />
+          <>
+            {/* Backdrop for mobile */}
+            <div 
+              className="md:hidden fixed inset-0 bg-black/30 z-20 backdrop-blur-sm" 
+              onClick={() => setSelected(null)} 
+            />
+            <div className="fixed md:static top-[56px] bottom-0 md:top-auto md:bottom-auto right-0 z-30 w-[320px] max-w-[85vw] md:w-72 bg-white border-l border-slate-200 flex flex-col shadow-2xl md:shadow-none overflow-hidden transition-transform duration-200 animate-slide-in-right">
+              <NodePanel
+                node={nodes.find(n => n.id === selected.id) || selected}
+                onUpdate={(data) => updateNodeData(selected.id, data)}
+                onDelete={() => deleteNode(selected.id)}
+                onClose={() => setSelected(null)}
+                triggerKeywords={keywords}
+                onTriggerKeywordsChange={setKeywords}
+              />
+            </div>
+          </>
         )}
       </div>
 
@@ -373,10 +429,10 @@ export default function FlowBuilderPage() {
                 onChange={e => setKwInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addKeyword()}
                 placeholder="Type keyword and press Enter"
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-whatsapp-green"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               />
               <button onClick={addKeyword}
-                className="bg-whatsapp-green text-white px-3 py-2 rounded-lg text-sm">
+                className="bg-green-600 text-white px-3 py-2 rounded-lg text-sm">
                 <Plus size={16} />
               </button>
             </div>
@@ -392,7 +448,7 @@ export default function FlowBuilderPage() {
               ))}
             </div>
             <button onClick={() => { save(); setShowSettings(false); }}
-              className="w-full mt-4 bg-whatsapp-green text-white py-2.5 rounded-xl text-sm font-semibold">
+              className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-sm font-semibold">
               Save & Close
             </button>
           </div>

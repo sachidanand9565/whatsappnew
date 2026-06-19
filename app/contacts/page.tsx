@@ -85,7 +85,7 @@ export default function ContactsPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 focus-within:text-emerald-500 transition-colors" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 focus-within:text-green-500 transition-colors" />
           <input
             value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search name, phone, email..."
@@ -109,7 +109,8 @@ export default function ContactsPage() {
 
       {/* Table */}
       <div className="card p-0 overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -159,6 +160,64 @@ export default function ContactsPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile List View (APK Vibe) */}
+        <div className="md:hidden divide-y divide-gray-100 bg-white">
+          {loading ? (
+            <div className="text-center py-8 text-gray-400">Loading...</div>
+          ) : contacts.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">No contacts found</div>
+          ) : (
+            contacts.map((c) => {
+              const initial = (c.name || c.phone || '?').charAt(0).toUpperCase();
+              const avatarColors = ['bg-orange-400','bg-purple-500','bg-blue-500','bg-green-500','bg-red-400'];
+              const color = avatarColors[initial.charCodeAt(0) % avatarColors.length];
+              return (
+                <div key={c.id} className="p-4 flex items-start gap-3.5 hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                  <div className={`w-10 h-10 rounded-full ${color} text-white flex items-center justify-center font-bold text-sm flex-shrink-0`}>
+                    {initial}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="text-sm font-bold text-slate-800 truncate">{c.name || '—'}</p>
+                      <span className={`badge text-[9px] px-2 py-0.5 ${STATUS_COLORS[c.status] || 'bg-gray-100 text-gray-600'}`}>
+                        {c.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">+{c.phone}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                      {c.city && <span className="text-[10px] bg-slate-100 text-slate-500 px-2.5 py-0.5 rounded-full font-medium">{c.city}</span>}
+                      {c.source && <span className="text-[10px] bg-slate-100 text-slate-500 px-2.5 py-0.5 rounded-full font-medium">{c.source}</span>}
+                    </div>
+                    
+                    {/* Tags */}
+                    {Array.isArray(c.tags) && c.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2.5">
+                        {c.tags.map((t: string) => (
+                          <span key={t} className="badge bg-green-50 text-green-700 border border-green-100/50 text-[9px] py-0.5 px-2 flex items-center gap-1">
+                            <Tag size={8} />{t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Actions */}
+                  <div className="flex flex-col gap-2.5 justify-center self-center flex-shrink-0">
+                    <button onClick={() => { setEditContact(c); setShowModal(true); }}
+                      className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
+                      <Edit2 size={13} />
+                    </button>
+                    <button onClick={() => deleteContact(c.id)}
+                      className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 

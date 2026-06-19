@@ -83,7 +83,7 @@ export default function AnalyticsPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="animate-spin w-8 h-8 border-4 border-whatsapp-green border-t-transparent rounded-full" />
+      <div className="animate-spin w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full" />
     </div>
   );
 
@@ -95,36 +95,45 @@ export default function AnalyticsPage() {
   ] : [];
 
   return (
-    <div className="space-y-6">
-      {/* Header + date filter */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+    <div className="space-y-6 pb-24 lg:pb-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Analytics</h1>
       </div>
-
+ 
       {/* Date filter bar */}
-      <div className="card flex flex-wrap items-center gap-3">
-        <div className="flex gap-2 flex-wrap">
+      <div className="card p-4 sm:p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Presets */}
+        <div className="flex gap-1.5 flex-wrap">
           {PRESETS.map((p) => {
             const ps = p.s(), pe = p.e();
             const active = startDate === ps && endDate === pe;
             return (
               <button key={p.label} onClick={() => { setStartDate(ps); setEndDate(pe); }}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                  ${active ? 'bg-whatsapp-green text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all
+                  ${active 
+                    ? 'bg-green-600 text-white shadow-sm shadow-green-600/10' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
                 {p.label}
               </button>
             );
           })}
         </div>
-        <div className="flex items-center gap-2 ml-auto">
-          <span className="text-sm text-gray-500">From</span>
-          <input type="date" value={startDate} max={endDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-whatsapp-green" />
-          <span className="text-sm text-gray-500">To</span>
-          <input type="date" value={endDate} min={startDate} max={todayStr()}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-whatsapp-green" />
+
+        {/* Date Inputs */}
+        <div className="flex flex-col xs:flex-row xs:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-2 flex-1 xs:flex-none">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider min-w-[32px] xs:min-w-0">From</span>
+            <input type="date" value={startDate} max={endDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs sm:text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 w-full xs:w-auto flex-1 shadow-sm" />
+          </div>
+          <div className="flex items-center gap-2 flex-1 xs:flex-none">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider min-w-[32px] xs:min-w-0">To</span>
+            <input type="date" value={endDate} min={startDate} max={todayStr()}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs sm:text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 w-full xs:w-auto flex-1 shadow-sm" />
+          </div>
         </div>
       </div>
 
@@ -140,10 +149,10 @@ export default function AnalyticsPage() {
           { label: 'Converted Leads',  value: summary.converted_leads,         sub: 'total conversions' },
           { label: 'Failed Messages',  value: summary.messages_failed,         sub: 'need attention' },
         ].map(({ label, value, sub }) => (
-          <div key={label} className="card">
-            <p className="text-2xl font-bold text-gray-900">{value}</p>
-            <p className="text-sm font-medium text-gray-700 mt-1">{label}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
+          <div key={label} className="card p-4 sm:p-5 hover:shadow-md transition-all border border-slate-200/60 hover:border-slate-300">
+            <p className="text-2xl font-bold text-slate-800 tracking-tight">{value}</p>
+            <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-1">{label}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>
           </div>
         ))}
       </div>
@@ -198,7 +207,7 @@ export default function AnalyticsPage() {
 
         {metaLoading && (
           <div className="card flex items-center justify-center h-32">
-            <div className="animate-spin w-6 h-6 border-4 border-whatsapp-green border-t-transparent rounded-full" />
+            <div className="animate-spin w-6 h-6 border-4 border-green-600 border-t-transparent rounded-full" />
           </div>
         )}
 

@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { apiFetch } from '@/hooks/useApi';
 import { encryptId } from '@/lib/idCrypto';
 import MediaLibrary, { type MediaItem as MLItem } from '@/app/components/MediaLibrary';
-import { Send, Search, FileText, Image, FileVideo, File, ChevronDown, ChevronUp, Download, Music, MapPin, User, UserCheck, CheckCircle, Loader2, LayoutTemplate, X, Clock, ArrowRightLeft, Zap, Plus, Trash2, Tag, Eye, Paperclip, Maximize2 } from 'lucide-react';
+import { Send, Search, FileText, Image, FileVideo, File, ChevronDown, ChevronUp, Download, Music, MapPin, User, UserCheck, CheckCircle, Loader2, LayoutTemplate, X, Clock, ArrowRightLeft, Zap, Plus, Trash2, Tag, Eye, Paperclip, Maximize2, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Contact, Message } from '@/types';
 
@@ -43,6 +43,21 @@ function parseInteractiveContent(content: string): InteractiveContent | null {
   try {
     const p = JSON.parse(content);
     if (p.__type === 'interactive') return p as InteractiveContent;
+  } catch { /**/ }
+  return null;
+}
+
+interface ListContent {
+  __type: 'interactive_list';
+  body: string;
+  button: string;
+  sections: { title: string; rows: { title: string; description?: string }[] }[];
+}
+
+function parseListContent(content: string): ListContent | null {
+  try {
+    const p = JSON.parse(content);
+    if (p.__type === 'interactive_list') return p as ListContent;
   } catch { /**/ }
   return null;
 }
@@ -266,6 +281,45 @@ function InteractiveBubble({ data, status, time }: { data: InteractiveContent; s
   );
 }
 
+function ListBubble({ data, status, time }: { data: ListContent; status: string; time: string }) {
+  return (
+    <div className="flex flex-col items-end">
+      {/* Main bubble card */}
+      <div className="w-72 rounded-2xl rounded-br-none overflow-hidden shadow-md border border-emerald-100/50 bg-[#d9fdd3] text-slate-800">
+        <div className="px-4 py-3">
+          <p className="text-sm text-slate-800 whitespace-pre-wrap break-words leading-relaxed">{data.body}</p>
+          <p className="text-[10px] text-slate-500 text-right mt-1.5 flex items-center justify-end gap-0.5">
+            {time}
+            <span className={status === 'read' ? 'text-sky-500' : 'text-slate-400'}>
+              {status === 'read' || status === 'delivered' ? ' ✓✓' : ' ✓'}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      {/* Single "open list" button below, matching WhatsApp's list message UI */}
+      <div className="w-72 mt-1.5 bg-white rounded-xl shadow-sm border border-slate-100/80 overflow-hidden">
+        <div className="text-emerald-600 font-semibold text-xs py-2.5 px-4 text-center border-b border-slate-100">
+          {data.button}
+        </div>
+        <div className="divide-y divide-slate-100">
+          {data.sections?.map((section, si) => (
+            <div key={si}>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide px-4 pt-2 pb-1">{section.title}</p>
+              {section.rows?.map((row, ri) => (
+                <div key={ri} className="px-4 py-2 text-xs text-slate-700">
+                  <p className="font-medium">{row.title}</p>
+                  {row.description && <p className="text-slate-400 mt-0.5">{row.description}</p>}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Contact Profile Panel ─────────────────────────────────────
 function ProfilePanel({ contact, templateMsgCount, sessionMsgCount, onContactUpdate }: {
   contact: Contact;
@@ -330,17 +384,24 @@ function ProfilePanel({ contact, templateMsgCount, sessionMsgCount, onContactUpd
   }
 
   const initial = (contact.name || contact.phone || '?').charAt(0).toUpperCase();
-  const avatarColors = ['bg-orange-400', 'bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-red-400'];
-  const color = avatarColors[initial.charCodeAt(0) % avatarColors.length];
+  // Dynamic linear gradients for avatars
+  const avatarGradients = [
+    'from-orange-400 to-amber-500',
+    'from-purple-500 to-indigo-600',
+    'from-blue-500 to-cyan-500',
+    'from-emerald-500 to-teal-600',
+    'from-rose-400 to-red-500'
+  ];
+  const avatarGradient = avatarGradients[initial.charCodeAt(0) % avatarGradients.length];
 
   const chatStatusBadge = contact.chat_status === 'intervened'
-    ? <span className="text-orange-600 font-semibold">Intervened</span>
+    ? <span className="text-orange-600 font-semibold bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-full text-[10px]">Intervened</span>
     : contact.chat_status === 'resolved'
-    ? <span className="text-green-600 font-semibold">Resolved</span>
-    : <span className="text-gray-600 font-semibold">Open</span>;
+    ? <span className="text-green-600 font-semibold bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full text-[10px]">Resolved</span>
+    : <span className="text-slate-600 font-semibold bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full text-[10px]">Open</span>;
 
   const infoRows = [
-    { label: 'Status',            value: <span className={`font-semibold ${contact.status === 'converted' ? 'text-green-600' : 'text-gray-700'}`}>{contact.status || 'Active'}</span> },
+    { label: 'Status',            value: <span className={`font-semibold ${contact.status === 'converted' ? 'text-green-600' : 'text-slate-700'}`}>{contact.status || 'Active'}</span> },
     { label: 'Chat Status',       value: chatStatusBadge },
     ...(contact.chat_status === 'intervened' && contact.intervened_by
       ? [{
@@ -356,29 +417,29 @@ function ProfilePanel({ contact, templateMsgCount, sessionMsgCount, onContactUpd
   ];
 
   return (
-    <div className="w-72 border-l border-gray-200 bg-white flex flex-col overflow-y-auto">
+    <div className="hidden lg:flex w-64 border-l border-slate-100 bg-white flex-col overflow-y-auto scrollbar-none">
       {/* Avatar + name */}
-      <div className="p-5 border-b border-gray-100 text-center">
-        <div className={`w-14 h-14 rounded-full ${color} text-white text-2xl font-bold flex items-center justify-center mx-auto mb-3`}>
+      <div className="p-5 border-b border-slate-100 text-center bg-slate-50/30">
+        <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${avatarGradient} text-white text-2xl font-bold flex items-center justify-center mx-auto mb-3 shadow-md`}>
           {initial}
         </div>
-        <p className="font-bold text-gray-900">{contact.name || contact.phone}</p>
-        <p className="text-sm text-gray-400 mt-0.5">+{contact.phone}</p>
+        <p className="font-bold text-slate-800 tracking-tight text-base">{contact.name || contact.phone}</p>
+        <p className="text-xs text-slate-400 mt-1 font-medium">+{contact.phone}</p>
       </div>
 
       {/* Info section */}
-      <div className="border-b border-gray-100">
+      <div className="border-b border-slate-100">
         <button onClick={() => toggle('info')}
-          className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+          className="w-full flex items-center justify-between px-4 py-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors uppercase tracking-wider">
           Chat Profile
-          {open.info ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          {open.info ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
         </button>
         {open.info && (
           <div className="px-4 pb-4 space-y-2.5">
             {infoRows.map(({ label, value }) => (
-              <div key={label} className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">{label}</span>
-                <span className="text-gray-700 text-right">{value}</span>
+              <div key={label} className="flex items-center justify-between text-xs font-medium">
+                <span className="text-slate-400">{label}</span>
+                <span className="text-slate-700 text-right">{value}</span>
               </div>
             ))}
           </div>
@@ -386,23 +447,23 @@ function ProfilePanel({ contact, templateMsgCount, sessionMsgCount, onContactUpd
       </div>
 
       {/* Tags */}
-      <div className="border-b border-gray-100">
+      <div className="border-b border-slate-100">
         <button onClick={() => toggle('tags')}
-          className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+          className="w-full flex items-center justify-between px-4 py-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors uppercase tracking-wider">
           <span className="flex items-center gap-1.5"><Tag size={13} /> Tags</span>
-          {open.tags ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          {open.tags ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
         </button>
         {open.tags && (
           <div className="px-4 pb-4 space-y-2">
             <div className="flex flex-wrap gap-1 min-h-[24px]">
               {tagList.length > 0
                 ? tagList.map((t) => (
-                    <span key={t} className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 text-xs rounded-full px-2.5 py-0.5">
+                    <span key={t} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-bold rounded-full px-2.5 py-0.5">
                       {t}
-                      <button onClick={() => removeTag(t)} disabled={savingTags} className="hover:text-blue-900 leading-none">×</button>
+                      <button onClick={() => removeTag(t)} disabled={savingTags} className="hover:text-blue-950 leading-none ml-0.5">×</button>
                     </span>
                   ))
-                : <p className="text-xs text-gray-400">No tags yet</p>}
+                : <p className="text-[11px] text-slate-400 font-medium">No tags yet</p>}
             </div>
             <div className="flex gap-1.5">
               <input
@@ -410,10 +471,10 @@ function ProfilePanel({ contact, templateMsgCount, sessionMsgCount, onContactUpd
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addTag()}
                 placeholder="Add tag..."
-                className="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-green-500"
+                className="flex-1 text-xs border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-slate-50/50"
               />
               <button onClick={addTag} disabled={!tagInput.trim() || savingTags}
-                className="px-2.5 py-1.5 bg-whatsapp-green text-white rounded-lg text-xs disabled:opacity-40">
+                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs disabled:opacity-40 flex items-center justify-center shadow-sm transition-all">
                 <Plus size={12} />
               </button>
             </div>
@@ -422,11 +483,11 @@ function ProfilePanel({ contact, templateMsgCount, sessionMsgCount, onContactUpd
       </div>
 
       {/* Notes */}
-      <div className="border-b border-gray-100">
+      <div className="border-b border-slate-100">
         <button onClick={() => toggle('notes')}
-          className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+          className="w-full flex items-center justify-between px-4 py-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors uppercase tracking-wider">
           Notes
-          {open.notes ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          {open.notes ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
         </button>
         {open.notes && (
           <div className="px-4 pb-4 space-y-2">
@@ -435,12 +496,12 @@ function ProfilePanel({ contact, templateMsgCount, sessionMsgCount, onContactUpd
               onChange={(e) => setNotesVal(e.target.value)}
               rows={3}
               placeholder="Write internal notes about this contact..."
-              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-green-500 resize-none"
+              className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all bg-slate-50/50 resize-none leading-relaxed"
             />
             <button
               onClick={saveNotes}
               disabled={savingNotes || notesVal === (contact.notes || '')}
-              className="w-full py-1.5 bg-whatsapp-green text-white text-xs font-semibold rounded-lg disabled:opacity-40 flex items-center justify-center gap-1">
+              className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl disabled:opacity-40 flex items-center justify-center gap-1.5 shadow-sm transition-all">
               {savingNotes ? <Loader2 size={12} className="animate-spin" /> : null}
               Save Notes
             </button>
@@ -899,9 +960,9 @@ export default function InboxPage() {
         const exists = prev.some((c) => c.id === selected.id);
         return exists ? prev.map((c) => c.id === selected.id ? updated : c) : [...prev, updated];
       });
-    } catch {
+    } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
-      toast.error('Failed to intervene');
+      toast.error(err instanceof Error ? err.message : 'Failed to intervene');
     }
     finally { setActioning(false); }
   }
@@ -1039,10 +1100,10 @@ export default function InboxPage() {
   const sessionMsgCount  = messages.filter((m) => m.direction === 'outbound' && m.type !== 'template').length;
 
   return (
-    <div className="h-[calc(100vh-5rem)] flex border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+    <div className="h-full lg:h-[calc(100vh-5rem)] flex border border-slate-200/80 rounded-2xl overflow-hidden bg-white shadow-sm shadow-slate-100/40">
 
       {/* ── Left: Contact List ──────────────────────────────── */}
-      <div className="w-72 border-r border-gray-200 flex flex-col flex-shrink-0">
+      <div className={`w-full lg:w-72 border-r border-slate-200/80 flex flex-col flex-shrink-0 ${selected ? 'hidden lg:flex' : 'flex'}`}>
         {/* Search */}
         <div className="p-3 border-b border-gray-100">
           <div className="relative">
@@ -1059,41 +1120,63 @@ export default function InboxPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-100">
-          {(['all', 'requested', 'intervened'] as const).map((t) => {
-            const requestedCount   = filtered.filter((c) => (c.chat_status === 'open' || !c.chat_status) && Number(c.inbound_count) > 0).length;
-            const isAdminOrManager = currentUserRole === 'admin' || currentUserRole === 'manager';
-            const intervenedSource = isAdminOrManager
-              ? intervenedContacts.filter((c) => (c.name || c.phone).toLowerCase().includes(search.toLowerCase()))
-              : filtered.filter((c) => c.chat_status === 'intervened');
-            // Badge shows count matching the current active sub-filter
-            const intervenedCount  = intervenedSource.filter((c) => matchesIntervenedFilter(c, intervenedFilter)).length;
-            const label =
-              t === 'all' ? `All (${contacts.length})` :
-              t === 'requested' ? (
-                <span className="flex items-center gap-1">
-                  Requested
-                  {requestedCount > 0 && <span className="bg-green-600 text-white text-xs rounded-full px-1.5 py-0.5 leading-none">{requestedCount}</span>}
-                </span>
-              ) : (
-                <span className="flex items-center gap-1">
-                  Intervened
-                  {intervenedCount > 0 && <span className="bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5 leading-none">{intervenedCount}</span>}
-                </span>
+        <div className="px-3 py-2 border-b border-slate-100 bg-slate-50/50">
+          <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/40">
+            {(['all', 'requested', 'intervened'] as const).map((t) => {
+              const requestedCount   = filtered.filter((c) => (c.chat_status === 'open' || !c.chat_status) && Number(c.inbound_count) > 0).length;
+              const isAdminOrManager = currentUserRole === 'admin' || currentUserRole === 'manager';
+              const intervenedSource = isAdminOrManager
+                ? intervenedContacts.filter((c) => (c.name || c.phone).toLowerCase().includes(search.toLowerCase()))
+                : filtered.filter((c) => c.chat_status === 'intervened');
+              // Badge shows count matching the current active sub-filter
+              const intervenedCount  = intervenedSource.filter((c) => matchesIntervenedFilter(c, intervenedFilter)).length;
+              
+              const isActive = tab === t;
+
+              const label =
+                t === 'all' ? (
+                  <span className="flex items-center gap-1 justify-center">
+                    All ({contacts.length})
+                  </span>
+                ) :
+                t === 'requested' ? (
+                  <span className="flex items-center gap-1 justify-center">
+                    Requested
+                    {requestedCount > 0 && (
+                      <span className={`text-[9px] font-bold rounded-full px-1.5 py-0.5 leading-none transition-all ${
+                        isActive ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {requestedCount}
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 justify-center">
+                    Intervened
+                    {intervenedCount > 0 && (
+                      <span className={`text-[9px] font-bold rounded-full px-1.5 py-0.5 leading-none transition-all ${
+                        isActive ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {intervenedCount}
+                      </span>
+                    )}
+                  </span>
+                );
+              return (
+                <button key={t} onClick={() => setTab(t)}
+                  className={`flex-1 py-1.5 px-1 text-[10px] sm:text-xs font-bold rounded-lg transition-all flex items-center justify-center ${
+                    isActive ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/20' : 'text-slate-500 hover:text-slate-800'
+                  }`}>
+                  {label}
+                </button>
               );
-            return (
-              <button key={t} onClick={() => setTab(t)}
-                className={`flex-1 py-2 text-xs font-semibold transition-colors flex items-center justify-center gap-1 ${
-                  tab === t ? 'border-b-2 border-green-600 text-green-600' : 'text-gray-400'}`}>
-                {label}
-              </button>
-            );
-          })}
+            })}
+          </div>
         </div>
 
         {/* Intervened filter dropdown — visible for admin/manager on intervened tab */}
         {tab === 'intervened' && (currentUserRole === 'admin' || currentUserRole === 'manager') && (
-          <div className="border-b border-gray-100 relative" ref={intervenedFilterRef}>
+          <div className="px-3 py-1.5 border-b border-slate-100 bg-orange-50/20 relative" ref={intervenedFilterRef}>
             {(() => {
               // For agent-specific filter, look up name by ID
               const selectedAgent = typeof intervenedFilter === 'number'
@@ -1113,18 +1196,18 @@ export default function InboxPage() {
               return (
                 <button
                   onClick={openIntervenedFilter}
-                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-semibold text-orange-700 hover:bg-orange-50 transition-colors">
+                  className="w-full flex items-center justify-between px-3 py-2 bg-orange-50/80 hover:bg-orange-100/80 text-orange-850 border border-orange-200/50 rounded-xl text-xs font-semibold transition-all">
                   <span className="truncate">
                     {filterLabel}{' '}
-                    <span className="text-orange-500 font-bold">({filterCount})</span>
+                    <span className="text-orange-600 font-bold">({filterCount})</span>
                   </span>
-                  {showIntervenedFilter ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  {showIntervenedFilter ? <ChevronUp size={12} className="text-orange-700" /> : <ChevronDown size={12} className="text-orange-700" />}
                 </button>
               );
             })()}
             {showIntervenedFilter && (
-              <div className="absolute left-0 right-0 top-full bg-white border border-gray-200 shadow-lg z-30 rounded-b-lg overflow-hidden">
-                <div className="max-h-64 overflow-y-auto">
+              <div className="absolute left-3 right-3 top-full mt-1 bg-white border border-slate-100 shadow-xl z-30 rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="max-h-64 overflow-y-auto p-1 space-y-0.5">
                   {([
                     { key: 'me'    as const, label: 'Intervened By Me' },
                     { key: 'any'   as const, label: 'Intervened By Any' },
@@ -1134,40 +1217,43 @@ export default function InboxPage() {
                     return (
                       <button key={opt.key}
                         onClick={() => { setIntervenedFilter(opt.key); setShowIntervenedFilter(false); }}
-                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors flex items-center justify-between gap-2 ${intervenedFilter === opt.key ? 'text-orange-600 font-semibold bg-orange-50' : 'text-gray-700'}`}>
+                        className={`w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-slate-50 transition-colors flex items-center justify-between gap-2 ${intervenedFilter === opt.key ? 'text-orange-700 font-bold bg-orange-50/50' : 'text-slate-650'}`}>
                         <span>{opt.label}</span>
                         {cnt > 0 && (
-                          <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none flex-shrink-0 ${intervenedFilter === opt.key ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-600'}`}>
+                          <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none flex-shrink-0 ${intervenedFilter === opt.key ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
                             {cnt}
                           </span>
                         )}
                       </button>
                     );
                   })}
-                  <div className="border-t border-gray-100 mt-1" />
+                  <div className="border-t border-slate-100 my-1 mx-1" />
                   {loadingFilterAgents ? (
                     <div className="flex items-center justify-center py-3">
-                      <Loader2 size={14} className="animate-spin text-gray-400" />
+                      <Loader2 size={14} className="animate-spin text-slate-400" />
                     </div>
                   ) : filterAgents.map((a) => {
                     const agentCount = intervenedContacts.filter((c) =>
                       c.assigned_agent_id === a.id ||
                       (!c.assigned_agent_id && c.intervened_by === a.name)
                     ).length;
+                    const agentInitial = a.name.charAt(0).toUpperCase();
+                    const avatarColors = ['bg-orange-400','bg-purple-500','bg-blue-500','bg-green-500','bg-red-400'];
+                    const color = avatarColors[agentInitial.charCodeAt(0) % avatarColors.length];
                     return (
                       <button key={a.id}
                         onClick={() => { setIntervenedFilter(a.id); setShowIntervenedFilter(false); }}
-                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 ${intervenedFilter === a.id ? 'text-orange-600 font-semibold bg-orange-50' : 'text-gray-700'}`}>
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${a.workspace_role === 'manager' ? 'bg-purple-500' : 'bg-blue-500'}`}>
-                          {a.name.charAt(0).toUpperCase()}
+                        className={`w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2 ${intervenedFilter === a.id ? 'text-orange-700 font-bold bg-orange-50/50' : 'text-slate-650'}`}>
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 ${color}`}>
+                          {agentInitial}
                         </span>
                         <span className="truncate">Intervened By {a.name}</span>
                         <span className="ml-auto flex items-center gap-1.5 flex-shrink-0">
                           {a.workspace_role !== 'agent' && (
-                            <span className="text-xs text-gray-400 capitalize">{a.workspace_role}</span>
+                            <span className="text-[10px] text-slate-400 capitalize">{a.workspace_role}</span>
                           )}
                           {agentCount > 0 && (
-                            <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 leading-none ${intervenedFilter === a.id ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-600'}`}>
+                            <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none ${intervenedFilter === a.id ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
                               {agentCount}
                             </span>
                           )}
@@ -1227,8 +1313,14 @@ export default function InboxPage() {
             const isResolved = c.chat_status === 'resolved';
             const isIntervened = c.chat_status === 'intervened';
             const initial = (c.name || c.phone).charAt(0).toUpperCase();
-            const avatarColors = ['bg-orange-400','bg-purple-500','bg-blue-500','bg-green-500','bg-red-400'];
-            const color = avatarColors[initial.charCodeAt(0) % avatarColors.length];
+            const avatarGradients = [
+              'from-orange-400 to-amber-500',
+              'from-purple-500 to-indigo-600',
+              'from-blue-500 to-cyan-500',
+              'from-emerald-500 to-teal-600',
+              'from-rose-400 to-red-500'
+            ];
+            const avatarGradient = avatarGradients[initial.charCodeAt(0) % avatarGradients.length];
             // assigned_agent_name comes from the API (subquery join on users)
             const transferredToAgent = c.assigned_agent_name ||
               filterAgents.find((a) => a.id === c.assigned_agent_id)?.name;
@@ -1240,40 +1332,45 @@ export default function InboxPage() {
                     : `User Intervened by ${c.intervened_by}`)
               : null;
             return (
-              <button key={c.id} onClick={() => selectContact(c)}
-                className={`w-full text-left px-3 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors flex items-center gap-3
-                  ${selected?.id === c.id ? 'bg-green-50 border-l-2 border-l-green-600' : ''}
-                  ${isResolved ? 'opacity-60' : ''}`}>
-                <div className={`w-10 h-10 rounded-full ${color} text-white flex items-center justify-center font-bold text-sm flex-shrink-0`}>
-                  {initial}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-1">
-                    <p className={`text-sm truncate ${unread > 0 ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
-                      {c.name || c.phone}
-                    </p>
-                    {c.last_message_at && (
-                      <span className="text-xs text-gray-400 flex-shrink-0">
-                        {toLocalDate(c.last_message_at!).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })}
-                      </span>
-                    )}
+              <div key={c.id} className="px-2 py-0.5">
+                <button onClick={() => selectContact(c)}
+                  className={`w-full text-left p-3 rounded-xl transition-all duration-200 flex items-center gap-3 border border-transparent
+                    ${selected?.id === c.id
+                      ? 'bg-emerald-50/70 border-emerald-100 shadow-sm shadow-emerald-50/50'
+                      : 'hover:bg-slate-50/80 active:bg-slate-100/50 hover:shadow-sm'
+                    }
+                    ${isResolved ? 'opacity-65' : ''}`}>
+                  <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${avatarGradient} text-white flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-sm`}>
+                    {initial}
                   </div>
-                  <div className="flex items-center justify-between mt-0.5">
-                    <p className={`text-xs truncate ${unread > 0 ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
-                      {isResolved
-                        ? <span className="text-green-600 font-medium">Resolved</span>
-                        : intervenedLabel
-                          ? <span className="text-orange-600">{intervenedLabel}</span>
-                          : `+${c.phone}`}
-                    </p>
-                    {unread > 0 && !isResolved && (
-                      <span className="flex-shrink-0 bg-green-600 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
-                        {unread > 99 ? '99+' : unread}
-                      </span>
-                    )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <p className={`text-sm truncate ${unread > 0 ? 'font-bold text-slate-900' : 'font-semibold text-slate-700'}`}>
+                        {c.name || c.phone}
+                      </p>
+                      {c.last_message_at && (
+                        <span className="text-[10px] text-slate-400 font-medium flex-shrink-0">
+                          {toLocalDate(c.last_message_at!).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className={`text-xs truncate ${unread > 0 ? 'text-slate-750 font-bold' : 'text-slate-400 font-medium'}`}>
+                        {isResolved
+                          ? <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] px-1.5 py-0.5 rounded-md font-medium">Resolved</span>
+                          : intervenedLabel
+                            ? <span className="text-orange-600">{intervenedLabel}</span>
+                            : `+${c.phone}`}
+                      </p>
+                      {unread > 0 && !isResolved && (
+                        <span className="flex-shrink-0 bg-green-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 animate-pulse shadow-sm">
+                          {unread > 99 ? '99+' : unread}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+              </div>
             );
           })}
         </div>
@@ -1281,46 +1378,77 @@ export default function InboxPage() {
 
       {/* ── Middle: Chat area ───────────────────────────────── */}
       {selected ? (
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className={`flex-1 flex flex-col min-w-0 ${selected ? 'flex' : 'hidden lg:flex'}`}>
           {/* Chat header */}
-          <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-3 bg-white">
-            <div className="w-9 h-9 rounded-full bg-green-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
-              {(selected.name || selected.phone).charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm text-gray-900">{selected.name || selected.phone}</p>
-              <p className="text-xs text-gray-400">+{selected.phone}</p>
-            </div>
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3 bg-white/95 backdrop-blur-md sticky top-0 z-10 shadow-sm shadow-slate-100/40">
+            {/* Back button for mobile view (APK feel) */}
+            <button 
+              onClick={() => setSelected(null)} 
+              className="lg:hidden p-1.5 hover:bg-slate-100 rounded-full text-slate-500 mr-1 transition-all"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            {(() => {
+              const headerInitial = (selected.name || selected.phone).charAt(0).toUpperCase();
+              const headerAvatarGradients = [
+                'from-orange-400 to-amber-500',
+                'from-purple-500 to-indigo-600',
+                'from-blue-500 to-cyan-500',
+                'from-emerald-500 to-teal-600',
+                'from-rose-400 to-red-500'
+              ];
+              const headerGradient = headerAvatarGradients[headerInitial.charCodeAt(0) % headerAvatarGradients.length];
+              return (
+                <>
+                  <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${headerGradient} text-white flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-sm`}>
+                    {headerInitial}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-sm text-slate-800 truncate">{selected.name || selected.phone}</p>
+                      {selected.chat_status === 'intervened' ? (
+                        <span className="bg-orange-50 border border-orange-100 text-orange-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Intervened</span>
+                      ) : selected.chat_status === 'resolved' ? (
+                        <span className="bg-emerald-50 border border-emerald-100 text-emerald-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Resolved</span>
+                      ) : (
+                        <span className="bg-blue-50 border border-blue-100 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Open</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 font-medium">+{selected.phone}</p>
+                  </div>
+                </>
+              );
+            })()}
             {selected.chat_status === 'intervened' && (
               <div className="flex items-center gap-2">
                 {/* Transfer dropdown */}
                 <div className="relative" ref={transferRef}>
                   <button onClick={openTransfer} disabled={actioning || transferring}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-400 hover:bg-green-600 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
-                    {transferring ? <Loader2 size={12} className="animate-spin" /> : <ArrowRightLeft size={12} />}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl transition-all disabled:opacity-50 shadow-sm active:scale-[0.98]">
+                    {transferring ? <Loader2 size={11} className="animate-spin" /> : <ArrowRightLeft size={11} />}
                     Transfer
                     <ChevronDown size={11} className={`transition-transform duration-150 ${showTransfer ? 'rotate-180' : ''}`} />
                   </button>
                   {showTransfer && (
-                    <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-200 rounded-lg shadow-lg z-20 overflow-hidden">
-                      <p className="px-3 py-2 text-xs font-semibold text-gray-500 border-b border-gray-100">Transfer to</p>
+                    <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-slate-100 rounded-xl shadow-xl z-20 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                      <p className="px-3 py-2 text-[10px] font-bold text-slate-400 border-b border-slate-100 uppercase tracking-wider bg-slate-50/50">Transfer to</p>
                       {loadingAgents ? (
                         <div className="flex items-center justify-center py-5">
-                          <Loader2 size={16} className="animate-spin text-gray-400" />
+                          <Loader2 size={16} className="animate-spin text-slate-400" />
                         </div>
                       ) : transferAgents.length === 0 ? (
-                        <p className="px-3 py-4 text-xs text-gray-400 text-center">No agents available</p>
+                        <p className="px-3 py-4 text-xs text-slate-400 text-center font-medium">No agents available</p>
                       ) : (
-                        <div className="max-h-48 overflow-y-auto">
+                        <div className="max-h-48 overflow-y-auto p-1 space-y-0.5 bg-white">
                           {transferAgents.map((a) => (
                             <button key={a.id} onClick={() => transferChat(a)}
-                              className="w-full text-left px-3 py-2.5 hover:bg-gray-50 flex items-center gap-2.5 transition-colors border-b border-gray-50 last:border-0">
-                              <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                              className="w-full text-left px-2 py-2 hover:bg-slate-50 flex items-center gap-2 transition-all rounded-lg">
+                              <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
                                 {a.name.charAt(0).toUpperCase()}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-xs font-medium text-gray-800 truncate">{a.name}</p>
-                                <p className="text-xs text-gray-400 capitalize">{a.workspace_role}</p>
+                                <p className="text-xs font-bold text-slate-700 truncate">{a.name}</p>
+                                <p className="text-[10px] text-slate-400 capitalize">{a.workspace_role}</p>
                               </div>
                             </button>
                           ))}
@@ -1331,8 +1459,8 @@ export default function InboxPage() {
                 </div>
                 {/* Resolve button */}
                 <button onClick={resolve} disabled={actioning}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50">
-                  {actioning ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50 shadow-sm active:scale-[0.98]">
+                  {actioning ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
                   Resolve
                 </button>
               </div>
@@ -1340,8 +1468,8 @@ export default function InboxPage() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-[#f0f0f0]" ref={chatRef}
-            style={{ backgroundImage: 'radial-gradient(circle, #d4d4d4 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f8fafc]" ref={chatRef}
+            style={{ backgroundImage: 'radial-gradient(#e2e8f0 1.5px, transparent 1.5px)', backgroundSize: '24px 24px' }}>
 
             {/* Messages loading skeleton */}
             {messagesLoading && messages.length === 0 && (
@@ -1357,6 +1485,7 @@ export default function InboxPage() {
             {messages.map((m, idx) => {
               const tpl      = parseTemplateContent(m.content);
               const interactive = parseInteractiveContent(m.content);
+              const list     = parseListContent(m.content);
               const media    = parseMediaContent(m.content);
               const location = parseLocationContent(m.content);
               const contacts = parseContactsContent(m.content);
@@ -1393,8 +1522,8 @@ export default function InboxPage() {
                         </span>
                       </div>
                     )}
-                    <div className="flex items-center justify-center my-2">
-                      <span className="bg-gray-200/80 text-gray-500 text-xs px-4 py-1.5 rounded-full shadow-sm">
+                    <div className="flex items-center justify-center my-2.5">
+                      <span className="bg-white/60 backdrop-blur-sm text-slate-500 text-[11px] font-semibold px-4 py-1.5 rounded-full shadow-sm border border-slate-200/40">
                         {m.content}
                       </span>
                     </div>
@@ -1424,11 +1553,13 @@ export default function InboxPage() {
                     <TemplateBubble data={tpl} status={m.status} time={timeStr} />
                   ) : interactive ? (
                     <InteractiveBubble data={interactive} status={m.status} time={timeStr} />
+                  ) : list ? (
+                    <ListBubble data={list} status={m.status} time={timeStr} />
                   ) : (
-                    <div className={`max-w-xs lg:max-w-sm rounded-2xl text-sm shadow-sm overflow-hidden
+                    <div className={`max-w-xs lg:max-w-sm rounded-2xl text-sm shadow-md overflow-hidden transition-all duration-150
                       ${m.direction === 'outbound'
-                        ? 'bg-[#dcf8c6] text-gray-800 rounded-br-sm'
-                        : 'bg-white text-gray-800 rounded-bl-sm'}`}>
+                        ? 'bg-gradient-to-br from-emerald-600 to-emerald-500 text-white rounded-br-none border border-emerald-600/30'
+                        : 'bg-white text-slate-800 rounded-bl-none border border-slate-100 shadow-slate-100/60'}`}>
 
                       {/* Reply reference — with linked message or fallback to last template */}
                       {(m.replied_to_wamid || (m.direction === 'inbound' && (m.type === 'button' || m.type === 'interactive'))) && (() => {
@@ -1453,14 +1584,18 @@ export default function InboxPage() {
                           previewText = quotedMsg.content;
                         }
 
+                        const isOutboundRef = m.direction === 'outbound';
                         return (
                           <button
                             onClick={() => quotedMsg?.wamid && scrollToReplied(quotedMsg.wamid)}
-                            className="w-full text-left bg-black/5 border-l-4 border-green-500 px-3 py-1.5 hover:bg-black/10 transition-colors border-b border-gray-100/50 block">
-                            <p className="text-green-600 font-semibold text-[10px] flex items-center gap-1 mb-0.5">
-                              ↩ Replied to this message
+                            className={`w-full text-left px-3 py-1.5 transition-colors border-b block text-xs
+                              ${isOutboundRef
+                                ? 'bg-black/10 border-l-4 border-emerald-300 text-emerald-50 border-emerald-550/10 hover:bg-black/15'
+                                : 'bg-slate-50 border-l-4 border-emerald-500 text-slate-600 border-slate-100 hover:bg-slate-100'}`}>
+                            <p className={`font-bold text-[9px] flex items-center gap-1 mb-0.5 ${isOutboundRef ? 'text-emerald-200' : 'text-emerald-600'}`}>
+                              ↩ Replied to message
                             </p>
-                            <p className="text-gray-500 text-xs truncate">
+                            <p className={`truncate text-xs ${isOutboundRef ? 'text-emerald-100/90' : 'text-slate-500'}`}>
                               {previewText.slice(0, 55)}
                               {previewText.length > 55 && '…'}
                             </p>
@@ -1488,10 +1623,13 @@ export default function InboxPage() {
                         ) : (
                           <p className="break-words whitespace-pre-wrap leading-relaxed">{m.content}</p>
                         )}
-                        <p className={`text-xs mt-1 flex items-center gap-0.5 ${m.direction === 'outbound' ? 'justify-end text-gray-400' : 'text-gray-300'}`}>
+                        <p className={`text-[10px] mt-1.5 flex items-center gap-0.5 font-medium
+                          ${m.direction === 'outbound'
+                            ? 'justify-end text-emerald-100/80'
+                            : 'text-slate-400'}`}>
                           {timeStr}
                           {m.direction === 'outbound' && (
-                            <span className={m.status === 'read' ? 'text-green-500' : 'text-gray-400'}>
+                            <span className={m.status === 'read' ? 'text-sky-300 animate-pulse' : 'text-emerald-200/60'}>
                               {m.status === 'read' || m.status === 'delivered' ? ' ✓✓' : ' ✓'}
                             </span>
                           )}
@@ -1542,10 +1680,10 @@ export default function InboxPage() {
                     ))}
                     {/* Preview */}
                     <div className="border-t pt-3 mt-1">
-                      <p className="text-xs font-semibold text-gray-500 flex items-center gap-1 mb-2">
+                      <p className="text-xs font-semibold text-slate-500 flex items-center gap-1 mb-2">
                         <Eye size={12} /> Preview
                       </p>
-                      <div className="bg-[#dcf8c6] rounded-xl rounded-br-sm px-3 py-2 text-sm text-gray-800 leading-snug whitespace-pre-wrap shadow-sm">
+                      <div className="bg-emerald-50 border border-emerald-100 rounded-xl rounded-br-none px-3 py-2 text-sm text-slate-800 leading-snug whitespace-pre-wrap shadow-sm">
                         {renderTplPreview(applyTplParams(tplForParams.body_text, tplParamVals))}
                       </div>
                     </div>
@@ -1608,21 +1746,21 @@ export default function InboxPage() {
           {selected.chat_status === 'intervened' ? (
             isSessionOpen ? (
               /* Session active — full text input */
-              <div className="border-t border-gray-200 bg-white">
+              <div className="p-4 border-t border-slate-100 bg-white">
                 {/* Quick Replies panel */}
                 {showQR && (
-                  <div ref={qrRef} className="border-b border-gray-100 bg-gray-50">
+                  <div ref={qrRef} className="mb-2 bg-slate-50 border border-slate-200/50 rounded-xl overflow-hidden shadow-sm animate-in fade-in duration-150">
                     {/* Header */}
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
-                      <p className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
-                        <Zap size={12} className="text-yellow-500" /> Quick Replies
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 bg-slate-100/50">
+                      <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                        <Zap size={12} className="text-yellow-500 fill-yellow-500" /> Quick Replies
                       </p>
                       <div className="flex items-center gap-2">
                         <button onClick={() => setShowQRManage((v) => !v)}
-                          className="text-xs text-green-600 font-medium hover:underline">
+                          className="text-xs text-green-600 font-semibold hover:underline">
                           {showQRManage ? 'Done' : 'Manage'}
                         </button>
-                        <button onClick={() => setShowQR(false)} className="text-gray-400 hover:text-gray-600">
+                        <button onClick={() => setShowQR(false)} className="text-slate-400 hover:text-slate-600">
                           <X size={14} />
                         </button>
                       </div>
@@ -1630,34 +1768,34 @@ export default function InboxPage() {
 
                     {/* Manage form */}
                     {showQRManage && (
-                      <div className="px-3 py-2 space-y-2 border-b border-gray-100">
+                      <div className="px-3 py-2 space-y-2 border-b border-slate-100 bg-slate-50">
                         <input value={qrForm.title} onChange={(e) => setQrForm({ ...qrForm, title: e.target.value })}
-                          placeholder="Title (e.g. Greeting)" className="input text-xs py-1.5" />
+                          placeholder="Title (e.g. Greeting)" className="input text-xs py-1.5 bg-white" />
                         <textarea value={qrForm.content} onChange={(e) => setQrForm({ ...qrForm, content: e.target.value })}
                           placeholder="Message content..." rows={2}
-                          className="input text-xs py-1.5 resize-none" />
+                          className="input text-xs py-1.5 resize-none bg-white" />
                         <button onClick={saveQuickReply} disabled={savingQR || !qrForm.title.trim() || !qrForm.content.trim()}
-                          className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1 disabled:opacity-40">
+                          className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1 disabled:opacity-40 shadow-none">
                           <Plus size={12} /> {savingQR ? 'Saving...' : 'Add Quick Reply'}
                         </button>
                       </div>
                     )}
 
                     {/* List */}
-                    <div className="max-h-40 overflow-y-auto divide-y divide-gray-50">
+                    <div className="max-h-40 overflow-y-auto divide-y divide-slate-100/80 bg-white">
                       {quickReplies.length === 0
-                        ? <p className="text-center text-xs text-gray-400 py-4">No quick replies yet. Click Manage to add.</p>
+                        ? <p className="text-center text-xs text-slate-400 py-4 font-medium">No quick replies yet. Click Manage to add.</p>
                         : quickReplies.map((qr) => (
-                          <div key={qr.id} className="flex items-start gap-2 px-3 py-2 hover:bg-white transition-colors group">
+                          <div key={qr.id} className="flex items-start gap-2 px-3 py-2 hover:bg-slate-50 transition-colors group">
                             <button onClick={() => { setText(qr.content); setShowQR(false); }}
                               className="flex-1 text-left min-w-0">
-                              <p className="text-xs font-semibold text-gray-800">{qr.title}</p>
-                              <p className="text-xs text-gray-400 truncate">{qr.content}</p>
+                              <p className="text-xs font-semibold text-slate-800">{qr.title}</p>
+                              <p className="text-xs text-slate-400 truncate">{qr.content}</p>
                             </button>
                             {showQRManage && (
                               <button onClick={() => deleteQuickReply(qr.id)}
-                                className="text-gray-300 hover:text-red-500 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Trash2 size={13} />
+                                className="text-slate-350 hover:text-red-500 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                                <Trash2 size={12} />
                               </button>
                             )}
                           </div>
@@ -1666,119 +1804,130 @@ export default function InboxPage() {
                   </div>
                 )}
 
-                {/* Rich input */}
-                <div className="relative">
+                {/* Unified input card */}
+                <div className="relative border border-slate-200/80 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/10 rounded-2xl bg-slate-50/50 hover:bg-slate-50/80 focus-within:bg-white transition-all shadow-sm">
                   {/* Emoji picker */}
                   {showEmoji && (
                     <div ref={emojiRef}
-                      className="absolute bottom-full left-3 mb-1 bg-white border border-gray-200 rounded-xl shadow-xl p-2 grid grid-cols-8 gap-0.5 z-30 w-64">
+                      className="absolute bottom-full left-0 mb-2 bg-white border border-slate-200/80 rounded-2xl shadow-xl p-2 grid grid-cols-8 gap-0.5 z-30 w-64 animate-in fade-in slide-in-from-bottom-2 duration-150">
                       {EMOJIS.map(em => (
                         <button key={em} onClick={() => { setText(t => t + em); setShowEmoji(false); inputRef.current?.focus(); }}
-                          className="text-xl p-1 hover:bg-gray-100 rounded transition-colors">{em}</button>
+                          className="text-xl p-1 hover:bg-slate-100 rounded-lg transition-colors">{em}</button>
                       ))}
                     </div>
                   )}
                   {/* Textarea */}
-                  <div className="px-3 pt-2.5">
+                  <div className="px-3 pt-3">
                     <textarea
                       ref={inputRef}
                       value={text}
                       onChange={(e) => setText(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                      placeholder='Type "/" for quick replies…'
+                      placeholder='Type a message, or "/" for quick replies…'
                       rows={2}
-                      className="w-full resize-none text-sm bg-transparent outline-none text-gray-800 placeholder-gray-400 leading-snug"
+                      className="w-full resize-none text-sm bg-transparent outline-none border-0 focus:ring-0 text-slate-800 placeholder-slate-400 leading-relaxed scrollbar-none"
                       style={{ maxHeight: 120 }}
                     />
                   </div>
                   {/* Toolbar */}
-                  <div className="flex items-center justify-between px-3 pb-2.5">
+                  <div className="flex items-center justify-between px-3 pb-2 pt-1.5 border-t border-slate-100 bg-transparent">
                     <div className="flex items-center gap-0.5">
                       <button onClick={() => applyFormat('*')} title="Bold"
-                        className="px-2 py-1 rounded hover:bg-gray-100 font-bold text-sm text-gray-600 transition-colors">B</button>
+                        className="p-1.5 rounded-lg hover:bg-slate-100 font-extrabold text-xs text-slate-500 transition-colors w-7 h-7 flex items-center justify-center">B</button>
                       <button onClick={() => applyFormat('_')} title="Italic"
-                        className="px-2 py-1 rounded hover:bg-gray-100 italic text-sm text-gray-600 transition-colors">I</button>
+                        className="p-1.5 rounded-lg hover:bg-slate-100 italic text-xs text-slate-500 transition-colors w-7 h-7 flex items-center justify-center">I</button>
                       <button onClick={() => applyFormat('~')} title="Strikethrough"
-                        className="px-2 py-1 rounded hover:bg-gray-100 line-through text-sm text-gray-600 transition-colors">S</button>
-                      <div className="w-px h-4 bg-gray-200 mx-1" />
+                        className="p-1.5 rounded-lg hover:bg-slate-100 line-through text-xs text-slate-500 transition-colors w-7 h-7 flex items-center justify-center">S</button>
+                      <div className="w-px h-4 bg-slate-200 mx-1.5" />
                       <button onClick={() => setShowEmoji(v => !v)} title="Emoji"
-                        className={`p-1.5 rounded text-base transition-colors ${showEmoji ? 'bg-yellow-50' : 'hover:bg-gray-100'}`}>😊</button>
+                        className={`p-1.5 rounded-lg transition-colors flex items-center justify-center w-7 h-7 ${showEmoji ? 'bg-yellow-50 text-yellow-605 shadow-sm' : 'hover:bg-slate-100 text-slate-500'}`}>😊</button>
                       <button onClick={() => setShowMediaLib(true)} title="Media Library"
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 transition-colors">
-                        <Image size={15} />
+                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors flex items-center justify-center w-7 h-7">
+                        <Image size={14} />
                       </button>
-                      <label title="Upload & send file" className={`p-1.5 rounded hover:bg-gray-100 cursor-pointer transition-colors ${uploadingMedia ? 'text-gray-300 pointer-events-none' : 'text-gray-500'}`}>
-                        <Paperclip size={15} />
+                      <label title="Upload & send file" className={`p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors flex items-center justify-center w-7 h-7 ${uploadingMedia ? 'text-slate-300 pointer-events-none' : 'text-slate-500'}`}>
+                        <Paperclip size={14} />
                         <input type="file" className="hidden" accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
                           onChange={(e) => { const f = e.target.files?.[0]; if (f) sendMediaFile(f); e.target.value = ''; }} />
                       </label>
-                      <div className="w-px h-4 bg-gray-200 mx-1" />
+                      <div className="w-px h-4 bg-slate-200 mx-1.5" />
                       <button onClick={() => setShowQR(v => !v)} title="Quick Replies"
-                        className={`p-1.5 rounded transition-colors ${showQR ? 'bg-yellow-50 text-yellow-600' : 'hover:bg-gray-100 text-gray-500'}`}>
-                        <Zap size={15} />
+                        className={`p-1.5 rounded-lg transition-colors flex items-center justify-center w-7 h-7 ${showQR ? 'bg-emerald-50 text-emerald-600' : 'hover:bg-slate-100 text-slate-500'}`}>
+                        <Zap size={14} />
                       </button>
                       <button onClick={() => { loadTemplates(); setShowTemplates(v => !v); }} title="Send Template"
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 transition-colors">
-                        <LayoutTemplate size={15} />
+                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors flex items-center justify-center w-7 h-7">
+                        <LayoutTemplate size={14} />
                       </button>
                     </div>
                     <button onClick={sendMessage} disabled={sending || !text.trim()}
-                      className="btn-primary px-4 py-1.5 text-sm flex items-center gap-1.5 disabled:opacity-50">
-                      {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Send
+                      className="btn-primary px-3 py-1.5 text-xs flex items-center gap-1.5 disabled:opacity-50 shadow-none hover:shadow-none hover:translate-y-0 active:scale-[0.98]">
+                      {sending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Send
                     </button>
                   </div>
                 </div>
               </div>
             ) : (
               /* Session expired — disabled input + template button */
-              <div className="border-t border-gray-200 bg-white">
-                <div className="flex items-center gap-1.5 px-3 pt-2 pb-1">
-                  <Clock size={12} className="text-amber-500 flex-shrink-0" />
-                  <p className="text-xs text-amber-600">24h session expired — waiting for user reply, or send a template</p>
+              <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col gap-2">
+                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-100 rounded-xl text-amber-800">
+                  <Clock size={14} className="text-amber-500 flex-shrink-0 animate-pulse" />
+                  <p className="text-xs font-semibold leading-normal">
+                    24h session expired — waiting for user reply, or send a template to restart the session.
+                  </p>
                 </div>
-                <div className="p-2 flex gap-2 items-center">
+                <div className="flex gap-2 items-center mt-1">
                   <input disabled value=""
                     placeholder="Waiting for user reply…"
-                    className="input flex-1 text-sm bg-gray-50 cursor-not-allowed text-gray-400" />
+                    className="input flex-1 text-sm bg-slate-100 cursor-not-allowed text-slate-400 border-slate-200/60" />
                   <button onClick={() => { loadTemplates(); setShowTemplates((v) => !v); }}
                     title="Send template"
-                    className="p-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500 transition-colors flex-shrink-0">
-                    <LayoutTemplate size={16} />
+                    className="btn-secondary py-2 px-3 flex items-center justify-center gap-1.5 text-xs text-slate-650 shrink-0">
+                    <LayoutTemplate size={14} /> Send Template
                   </button>
                 </div>
               </div>
             )
           ) : selected.chat_status === 'resolved' ? (
-            <div className="p-4 border-t border-gray-200 bg-gray-50 flex flex-col items-center gap-2">
-              <p className="text-xs text-gray-400">Chat resolved — moves to History in 24 hrs</p>
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex flex-col items-center justify-center gap-3">
+              <div className="text-center">
+                <span className="inline-flex items-center gap-1 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
+                  ✓ Chat Resolved
+                </span>
+                <p className="text-xs text-slate-450 mt-2 font-medium">This chat has been resolved. It will automatically move to History in 24 hours.</p>
+              </div>
               <button onClick={intervene} disabled={actioning}
-                className="flex items-center gap-2 px-6 py-2.5 bg-green-600 hover:bg-blue-700 text-white font-semibold rounded-full text-sm transition-colors disabled:opacity-50 shadow-sm">
-                {actioning ? <Loader2 size={15} className="animate-spin" /> : <UserCheck size={15} />}
+                className="btn-primary py-2 px-5 text-xs flex items-center gap-2 shadow-sm font-semibold rounded-full bg-emerald-600 hover:bg-emerald-705 border border-transparent">
+                {actioning ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={14} />}
                 Intervene Again
               </button>
             </div>
           ) : (
-            <div className="p-4 border-t border-gray-200 bg-gray-50 flex items-center justify-center">
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex flex-col items-center justify-center gap-3">
               <button onClick={intervene} disabled={actioning}
-                className="flex items-center gap-2 px-6 py-2.5 bg-green-600 hover:bg-blue-700 text-white font-semibold rounded-full text-sm transition-colors disabled:opacity-50 shadow-sm">
-                {actioning ? <Loader2 size={15} className="animate-spin" /> : <UserCheck size={15} />}
-                Intervene
+                className="btn-primary py-2 px-6 text-xs flex items-center gap-2 shadow-sm font-semibold rounded-full bg-emerald-600 hover:bg-emerald-705 border border-transparent">
+                {actioning ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={14} />}
+                Intervene / Take Control
               </button>
             </div>
           )}
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center text-gray-400 bg-gray-50">
+        <div className="flex-1 flex items-center justify-center bg-slate-50/50">
           {contactsLoading ? (
             <div className="flex flex-col items-center gap-3">
-              <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-gray-400">Loading conversations…</p>
+              <Loader2 size={24} className="animate-spin text-emerald-600" />
+              <p className="text-sm text-slate-400 font-medium">Loading conversations…</p>
             </div>
           ) : (
-            <div className="text-center">
-              <div className="text-5xl mb-3">💬</div>
-              <p className="font-medium text-gray-500">Select a contact to start chatting</p>
-              <p className="text-sm text-gray-400 mt-1">Choose from the contact list on the left</p>
+            <div className="text-center max-w-sm px-6 py-10 bg-white border border-slate-200/50 rounded-2xl shadow-sm">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mx-auto mb-4 shadow-sm border border-emerald-100/50">
+                💬
+              </div>
+              <p className="font-bold text-slate-700 text-sm">Select a Conversation</p>
+              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed font-medium">
+                Choose a contact from the list on the left to review chat histories, trigger templates, or intervene manually.
+              </p>
             </div>
           )}
         </div>

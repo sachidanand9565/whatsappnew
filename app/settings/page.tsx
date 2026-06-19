@@ -66,17 +66,17 @@ function MetaConnectModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-white w-full sm:rounded-2xl sm:max-w-md shadow-2xl flex flex-col max-h-[92vh] rounded-t-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
           <div>
             <p className="font-bold text-gray-900">Select WhatsApp Account</p>
             <p className="text-xs text-gray-400 mt-0.5">{wabas.length} business account{wabas.length > 1 ? 's' : ''} found</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-650"><X size={18} /></button>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 flex-1 overflow-y-auto">
           {/* WABA selection */}
           {wabas.length > 1 && (
             <div>
@@ -125,7 +125,8 @@ function MetaConnectModal({
               )}
             </div>
           )}
-
+        </div>
+        <div className="p-5 border-t border-gray-100 flex-shrink-0">
           <button
             onClick={submit}
             disabled={!selectedWaba || !selectedPhone}
@@ -145,16 +146,16 @@ function ConnectResults({ results, onClose }: {
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-white w-full sm:rounded-2xl sm:max-w-md shadow-2xl flex flex-col max-h-[92vh] rounded-t-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
           <p className="font-bold text-gray-900">Setup Complete</p>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-655"><X size={18} /></button>
         </div>
-        <div className="p-5 space-y-3">
+        <div className="p-5 space-y-3 flex-1 overflow-y-auto">
           {results.map((r, i) => (
-            <div key={i} className={`flex items-start gap-3 p-3 rounded-lg
-              ${r.status === 'ok' ? 'bg-green-50' : 'bg-yellow-50'}`}>
+            <div key={i} className={`flex items-start gap-3 p-3 rounded-xl border
+              ${r.status === 'ok' ? 'bg-green-50/50 border-green-200/50' : 'bg-yellow-50/50 border-yellow-200/50'}`}>
               <span className="text-lg leading-none mt-0.5">
                 {r.status === 'ok' ? '✅' : '⚠️'}
               </span>
@@ -162,11 +163,13 @@ function ConnectResults({ results, onClose }: {
                 <p className={`text-sm font-semibold ${r.status === 'ok' ? 'text-green-800' : 'text-yellow-800'}`}>
                   {r.step}
                 </p>
-                {r.detail && <p className="text-xs text-gray-500 mt-0.5">{r.detail}</p>}
+                {r.detail && <p className="text-xs text-gray-500 mt-0.5 font-medium">{r.detail}</p>}
               </div>
             </div>
           ))}
-          <button onClick={onClose} className="btn-primary w-full mt-2">Done</button>
+        </div>
+        <div className="p-5 border-t border-gray-100 flex-shrink-0">
+          <button onClick={onClose} className="btn-primary w-full">Done</button>
         </div>
       </div>
     </div>
@@ -480,29 +483,32 @@ export default function SettingsPage() {
   const isConfigured = isConnected;
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Settings</h1>
+        <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Configure your WhatsApp API credentials, chatbot webhooks, and integrations</p>
+      </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
         {/* ── LEFT COLUMN ── */}
         <div className="space-y-6">
 
           {/* Meta Facebook Connect */}
-          <div className="card space-y-4">
-            <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center">
-                <Facebook size={18} className="text-white" />
+          <div className="card space-y-5">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3.5">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-[0_2px_8px_rgba(37,99,235,0.15)]">
+                <Facebook size={20} className="text-white" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h2 className="font-semibold text-gray-900">Connect via Facebook</h2>
+                  <h2 className="font-bold text-slate-900 text-sm sm:text-base">Connect via Facebook</h2>
                   {BSP_READY
-                    ? <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1"><Zap size={10} />BSP</span>
-                    : <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Pending BSP</span>
+                    ? <span className="text-[9px] font-extrabold bg-green-150 text-green-700 border border-green-200/50 px-2 py-0.5 rounded-full flex items-center gap-0.5"><Zap size={9} />BSP</span>
+                    : <span className="text-[9px] font-extrabold bg-yellow-50 text-yellow-705 border border-yellow-200/50 px-2 py-0.5 rounded-full">PENDING BSP</span>
                   }
                 </div>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-slate-400 mt-0.5">
                   {BSP_READY
                     ? 'One-click — user sets up business & WhatsApp inside Meta popup'
                     : 'Full auto-setup will be enabled once BSP access is approved'}
@@ -511,28 +517,28 @@ export default function SettingsPage() {
             </div>
 
             {!APP_ID && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-700">
-                <p className="font-semibold">Set <code className="bg-yellow-100 px-1 rounded">NEXT_PUBLIC_FACEBOOK_APP_ID</code> in your .env to enable this.</p>
+              <div className="bg-yellow-50/50 border border-yellow-200/60 rounded-xl p-3.5 text-xs sm:text-sm text-yellow-700 leading-relaxed">
+                <p className="font-semibold">Set <code className="bg-yellow-100/80 px-1.5 py-0.5 rounded font-mono">NEXT_PUBLIC_FACEBOOK_APP_ID</code> in your .env to enable this.</p>
               </div>
             )}
 
             {!BSP_READY && APP_ID && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700 space-y-1">
-                <p className="font-semibold">Once BSP access is approved:</p>
+              <div className="bg-blue-50/50 border border-blue-200/50 rounded-xl p-3.5 text-xs text-blue-700 space-y-1.5 leading-relaxed">
+                <p className="font-semibold text-blue-800">Once BSP access is approved:</p>
                 <p>1. Go to Meta App Dashboard → WhatsApp → Embedded Signup → Create a Configuration</p>
-                <p>2. Set <code className="bg-blue-100 px-1 rounded">NEXT_PUBLIC_FACEBOOK_CONFIG_ID</code> = Configuration ID in your .env</p>
+                <p>2. Set <code className="bg-blue-100 px-1.5 py-0.5 rounded font-mono">NEXT_PUBLIC_FACEBOOK_CONFIG_ID</code> = Configuration ID in your .env</p>
                 <p>3. Restart the server — full one-click setup will be ready</p>
               </div>
             )}
 
             {isConnected ? (
-              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+              <div className="flex items-center justify-between bg-green-50/50 border border-green-200/55 rounded-xl px-4 py-3.5 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <CheckCircle size={18} className="text-green-600" />
-                  <div>
-                    <p className="text-sm font-semibold text-green-800">WhatsApp Business Connected</p>
-                    <p className="text-xs text-gray-500 font-mono mt-0.5">
-                      WABA: {form.waba_id} · Phone ID: {form.phone_number_id}
+                  <CheckCircle size={20} className="text-green-600 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-green-800">WhatsApp Connected</p>
+                    <p className="text-[10px] text-slate-400 font-mono mt-1 truncate">
+                      WABA: {form.waba_id} <br className="sm:hidden" /> Phone ID: {form.phone_number_id}
                     </p>
                   </div>
                 </div>
@@ -540,7 +546,7 @@ export default function SettingsPage() {
                   <button
                     onClick={loginWithFacebook}
                     disabled={!fbLoaded || fbLoading || connecting}
-                    className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50 flex items-center gap-1">
+                    className="text-xs text-blue-600 hover:text-blue-800 font-bold disabled:opacity-50 flex items-center gap-1.5 ml-2">
                     {(fbLoading || connecting) && <Loader2 size={12} className="animate-spin" />}
                     Reconnect
                   </button>
@@ -550,49 +556,37 @@ export default function SettingsPage() {
               <button
                 onClick={loginWithFacebook}
                 disabled={!APP_ID || !fbLoaded || fbLoading || connecting}
-                className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-50">
+                className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 shadow-md shadow-blue-600/10 active:translate-y-0.5 duration-200 text-sm">
                 {(fbLoading || connecting)
                   ? <><Loader2 size={18} className="animate-spin" /> Connecting...</>
                   : <><Facebook size={18} /> {BSP_READY ? 'Setup WhatsApp Business' : 'Connect via Facebook'}</>}
               </button>
             )}
 
-            <div className="text-xs text-gray-400 space-y-1">
+            <div className="text-[11px] text-slate-450 space-y-1.5 bg-slate-50/50 border border-slate-100/50 rounded-xl p-3.5">
               {BSP_READY ? (
                 <>
-                  <p>✓ User creates or selects their business inside the Meta popup</p>
-                  <p>✓ Adds or selects a WhatsApp number — everything auto-detected</p>
-                  <p>✓ Webhook subscribed & templates imported automatically</p>
+                  <p className="flex items-center gap-1.5">✓ User creates or selects their business inside the Meta popup</p>
+                  <p className="flex items-center gap-1.5">✓ Adds or selects a WhatsApp number — everything auto-detected</p>
+                  <p className="flex items-center gap-1.5">✓ Webhook subscribed & templates imported automatically</p>
                 </>
               ) : (
                 <>
-                  <p>✓ Login with Facebook → enter your WABA ID → phone numbers auto-detected</p>
-                  <p>✓ Webhook subscribed & templates imported automatically</p>
+                  <p className="flex items-center gap-1.5">✓ Login with Facebook → enter your WABA ID → phone numbers auto-detected</p>
+                  <p className="flex items-center gap-1.5">✓ Webhook subscribed & templates imported automatically</p>
                 </>
               )}
             </div>
           </div>
-
-          {/* Meta Webhook URL */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
-            <p className="font-semibold text-blue-800 text-sm">Your Webhook URL — Add this in Meta App Dashboard</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-mono text-blue-900 break-all">
-                {webhookUrl}
-              </code>
-              <button onClick={() => copyToClipboard(webhookUrl)} className="text-blue-600 hover:text-blue-800 p-2 flex-shrink-0">
-                <Copy size={16} />
-              </button>
-            </div>
-            <p className="text-xs text-blue-600">Meta App Dashboard → WhatsApp → Configuration → Webhook URL & Verify Token</p>
-          </div>
- {/* Custom Chatbot Webhooks */}
+          {/* Custom Chatbot Webhooks */}
           <div className="card space-y-5">
-            <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-              <Webhook size={18} className="text-whatsapp-teal" />
-              <div>
-                <h2 className="font-semibold text-gray-900">Custom Chatbot Webhooks</h2>
-                <p className="text-xs text-gray-400 mt-0.5">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3.5">
+              <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600 shadow-sm border border-green-200/60">
+                <Webhook size={20} />
+              </div>
+              <div className="flex-1">
+                <h2 className="font-bold text-slate-900 text-sm sm:text-base">Custom Chatbot Webhooks</h2>
+                <p className="text-xs text-slate-400 mt-0.5">
                   Every inbound message is forwarded to all active webhooks in parallel.
                 </p>
               </div>
@@ -633,67 +627,70 @@ export default function SettingsPage() {
 }`;
 
               return (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-600 space-y-2">
+                <div className="bg-slate-50/50 border border-slate-200/50 rounded-2xl p-4 text-xs text-slate-600 space-y-3 shadow-inner">
                   <div className="flex items-center justify-between">
-                    <p className="font-semibold text-gray-700">Payload your server will receive:</p>
+                    <p className="font-bold text-slate-700">Payload your server will receive:</p>
                     <button
                       onClick={() => copyToClipboard(payload)}
-                      className="flex items-center gap-1 text-gray-400 hover:text-whatsapp-teal transition-colors px-2 py-1 rounded-lg hover:bg-white"
+                      className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 hover:text-green-600 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-white border border-transparent hover:border-slate-100"
                       title="Copy payload">
                       <Copy size={12} /> Copy
                     </button>
                   </div>
 
                   {/* Message type tabs */}
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1.5">
                     {payloadTabs.map((t) => (
                       <button
                         key={t.key}
                         onClick={() => setPayloadTab(t.key)}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                           payloadTab === t.key
-                            ? 'bg-whatsapp-green text-white'
-                            : 'bg-white border border-gray-200 text-gray-500 hover:border-whatsapp-green hover:text-whatsapp-teal'
+                            ? 'bg-green-600 text-white shadow-sm shadow-green-605/10'
+                            : 'bg-white border border-slate-200 text-slate-500 hover:border-green-600 hover:text-green-600'
                         }`}>
                         {t.icon}{t.label}
                       </button>
                     ))}
                   </div>
 
-                  <pre className="bg-gray-900 text-green-400 rounded p-2 overflow-x-auto leading-relaxed text-[11px]">{payload}</pre>
+                  <pre className="bg-slate-900 text-slate-100 rounded-xl p-3.5 overflow-x-auto leading-relaxed font-mono text-[11px] shadow-inner select-all">{payload}</pre>
 
-                  <p className="text-gray-500">
-                    Reply: <code className="bg-gray-200 px-1 rounded">POST /api/send-message</code>
-                    {' · '}Signature: <code className="bg-gray-200 px-1 rounded">X-Webhook-Signature: sha256=...</code>
-                  </p>
+                  <div className="text-[10px] text-slate-450 flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-1 font-medium">
+                    <p>Reply: <code className="bg-white border border-slate-200/60 px-1.5 py-0.5 rounded font-mono">POST /api/send-message</code></p>
+                    <p>Signature: <code className="bg-white border border-slate-200/60 px-1.5 py-0.5 rounded font-mono">X-Webhook-Signature: sha256=...</code></p>
+                  </div>
                 </div>
               );
             })()}
 
             {hooks.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {hooks.map((hook) => (
                   <div key={hook.id}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors
-                      ${hook.is_active ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50 opacity-60'}`}>
+                    className={`flex items-center gap-3 px-4 py-3.5 rounded-xl border transition-all duration-350
+                      ${hook.is_active 
+                        ? 'border-slate-200 bg-white shadow-sm' 
+                        : 'border-slate-150/40 bg-slate-50/50 opacity-60'
+                      }`}>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-800">{hook.name}</p>
-                      <p className="text-xs text-gray-400 truncate font-mono">{hook.url}</p>
-                      {hook.secret && <p className="text-xs text-gray-300 mt-0.5">🔒 Secret configured</p>}
+                      <p className="text-sm font-bold text-slate-800">{hook.name}</p>
+                      <p className="text-xs text-slate-450 truncate font-mono mt-0.5">{hook.url}</p>
+                      {hook.secret && <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1 font-bold"><Key size={10} className="text-slate-350" /> Secret Configured</p>}
                     </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className="flex items-center gap-1 flex-shrink-0">
                       <button onClick={() => testHook(hook)} disabled={testingId === hook.id} title="Send test"
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-whatsapp-teal hover:bg-green-50 transition-colors disabled:opacity-40">
+                        className="p-2 rounded-lg text-slate-450 hover:text-green-600 hover:bg-slate-50 transition-colors disabled:opacity-40">
                         <RefreshCw size={15} className={testingId === hook.id ? 'animate-spin' : ''} />
                       </button>
                       <button onClick={() => toggleHook(hook)} title={hook.is_active ? 'Disable' : 'Enable'}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-whatsapp-teal hover:bg-green-50 transition-colors">
+                        className="p-2 rounded-lg text-slate-450 hover:text-green-600 hover:bg-slate-50 transition-colors">
                         {hook.is_active
-                          ? <ToggleRight size={18} className="text-whatsapp-green" />
-                          : <ToggleLeft size={18} />}
+                          ? <ToggleRight size={22} className="text-green-650" />
+                          : <ToggleLeft size={22} className="text-slate-300" />}
                       </button>
                       <button onClick={() => deleteHook(hook.id)} title="Delete"
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                        className="p-2 rounded-lg text-slate-450 hover:text-red-500 hover:bg-rose-50/60 transition-colors">
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -702,12 +699,12 @@ export default function SettingsPage() {
               </div>
             )}
             {hooks.length === 0 && (
-              <p className="text-center text-gray-400 text-sm py-2">No webhooks added yet</p>
+              <p className="text-center text-slate-400 text-sm py-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/30 font-medium">No webhooks added yet</p>
             )}
 
-            <form onSubmit={addWebhook} className="border border-dashed border-gray-300 rounded-lg p-4 space-y-3 bg-gray-50">
-              <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Plus size={15} /> Add New Webhook</p>
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={addWebhook} className="border border-dashed border-slate-200 rounded-2xl p-4.5 space-y-3.5 bg-slate-50/50">
+              <p className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5"><Plus size={14} /> Add New Webhook</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <input value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
                   className="input text-sm" placeholder="Name (e.g. My Bot)" required />
                 <div className="relative">
@@ -715,15 +712,15 @@ export default function SettingsPage() {
                     onChange={(e) => setAddForm({ ...addForm, secret: e.target.value })}
                     className="input text-sm pr-9 font-mono" placeholder="Secret (optional)" />
                   <button type="button" onClick={() => setShowAddSecret((s) => !s)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400">
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-450 hover:text-slate-600">
                     {showAddSecret ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
               </div>
               <input value={addForm.url} onChange={(e) => setAddForm({ ...addForm, url: e.target.value })}
                 className="input text-sm font-mono" placeholder="https://your-server.com/webhook" required />
-              <button type="submit" disabled={adding} className="btn-primary text-sm flex items-center gap-2">
-                <Plus size={15} />{adding ? 'Adding...' : 'Add Webhook'}
+              <button type="submit" disabled={adding} className="btn-primary text-xs flex items-center gap-2 font-bold py-2.5 justify-center w-full sm:w-auto">
+                <Plus size={14} />{adding ? 'Adding...' : 'Add Webhook'}
               </button>
             </form>
           </div>
@@ -734,12 +731,12 @@ export default function SettingsPage() {
 
           {/* Credentials source banner */}
           {credSource === 'env' && (
-            <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-4 flex items-start gap-3">
-              <AlertTriangle size={18} className="text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <p className="font-semibold text-yellow-800">Credentials loaded from .env file</p>
-                <p className="text-yellow-700 mt-0.5">
-                  Credentials are in <code className="bg-yellow-100 px-1 rounded">.env.local</code> but not saved to DB.
+            <div className="bg-yellow-50/50 border border-yellow-200/60 rounded-xl p-4 flex items-start gap-3.5 shadow-sm">
+              <AlertTriangle size={20} className="text-yellow-605 flex-shrink-0 mt-0.5" />
+              <div className="text-xs leading-relaxed text-yellow-800">
+                <p className="font-bold">Credentials loaded from .env file</p>
+                <p className="text-yellow-700 mt-1 font-medium">
+                  Credentials are in <code className="bg-yellow-100/80 px-1.5 py-0.5 rounded font-mono">.env.local</code> but not saved to DB.
                   Click <strong>Save Settings</strong> below.
                 </p>
               </div>
@@ -748,12 +745,12 @@ export default function SettingsPage() {
 
           {/* Manual credentials form */}
           <form onSubmit={save} className="card space-y-5">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <h2 className="font-semibold text-gray-900">WhatsApp API Credentials <span className="text-xs font-normal text-gray-400">(manual)</span></h2>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 flex-wrap gap-2">
+              <h2 className="font-bold text-slate-900 text-sm sm:text-base">WhatsApp Credentials</h2>
               {isConfigured && (
                 <button type="button" onClick={testConnection} disabled={testing}
-                  className="text-sm text-whatsapp-teal hover:text-whatsapp-dark font-medium flex items-center gap-1.5 disabled:opacity-50">
-                  {testing ? '⏳ Testing...' : '🔌 Test Connection'}
+                  className="text-xs font-bold text-green-600 hover:text-green-700 bg-green-50/60 hover:bg-green-100 px-3 py-1.5 rounded-xl border border-green-200/40 transition-colors disabled:opacity-50">
+                  {testing ? 'Testing...' : '🔌 Test Connection'}
                 </button>
               )}
             </div>
@@ -780,64 +777,66 @@ export default function SettingsPage() {
                   onChange={(e) => setForm({ ...form, access_token: e.target.value })}
                   className="input pr-10 font-mono text-xs" placeholder="EAAxxxxx..." required />
                 <button type="button" onClick={() => setShowToken((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650">
                   {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
             <div>
-              <label className="form-label">Verify Token <span className="font-normal text-gray-400 text-xs">(copy to Meta webhook setup)</span></label>
+              <label className="form-label">Verify Token <span className="font-medium text-slate-400 text-xs">(copy to Meta webhook setup)</span></label>
               <div className="flex gap-2">
-                <input value={form.verify_token} readOnly className="input font-mono bg-gray-50 flex-1" />
+                <input value={form.verify_token} readOnly className="input font-mono bg-slate-50/50 flex-1 border-slate-200/80 text-slate-500 cursor-default select-all" />
                 <button type="button" onClick={() => copyToClipboard(form.verify_token)}
-                  className="btn-secondary px-3 flex-shrink-0"><Copy size={16} /></button>
+                  className="btn-secondary px-3.5 flex-shrink-0 rounded-xl"><Copy size={16} /></button>
               </div>
             </div>
             <button type="submit" disabled={saving}
-              className="btn-primary flex items-center gap-2 w-full justify-center">
+              className="btn-primary flex items-center gap-2 w-full justify-center py-3 text-sm">
               <Save size={16} />{saving ? 'Saving...' : 'Save Settings'}
             </button>
           </form>
 
           {/* External Chatbot API Key */}
-          <div className="card space-y-4">
-            <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-              <Key size={18} className="text-purple-500" />
-              <div>
-                <h2 className="font-semibold text-gray-900">External Chatbot API</h2>
-                <p className="text-xs text-gray-400 mt-0.5">Use this key to send messages from n8n, Make, or any custom bot</p>
+          <div className="card space-y-5">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3.5">
+              <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 shadow-sm border border-purple-200/50">
+                <Key size={20} />
+              </div>
+              <div className="flex-1">
+                <h2 className="font-bold text-slate-900 text-sm sm:text-base">External Chatbot API</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Use this key to send messages from n8n, Make, or any custom bot</p>
               </div>
             </div>
 
             {apiKey ? (
               <>
-                <div>
+                <div className="space-y-2">
                   <label className="form-label">API Key</label>
-                  <div className="flex gap-2 mt-1">
+                  <div className="flex gap-2">
                     <input
                       type={showApiKey ? 'text' : 'password'}
                       value={apiKey}
                       readOnly
-                      className="input font-mono text-xs flex-1 bg-gray-50"
+                      className="input font-mono text-xs flex-1 bg-slate-50/50 text-slate-550 cursor-default select-all"
                     />
                     <button onClick={() => setShowApiKey((s) => !s)}
-                      className="btn-secondary px-3 flex-shrink-0">
+                      className="btn-secondary px-3.5 flex-shrink-0 rounded-xl">
                       {showApiKey ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                     <button onClick={() => copyToClipboard(apiKey)}
-                      className="btn-secondary px-3 flex-shrink-0">
+                      className="btn-secondary px-3.5 flex-shrink-0 rounded-xl">
                       <Copy size={15} />
                     </button>
                     <button onClick={regenApiKey} disabled={regenLoading}
-                      className="btn-secondary px-3 flex-shrink-0 text-red-500 hover:bg-red-50" title="Regenerate">
+                      className="btn-secondary px-3.5 flex-shrink-0 rounded-xl text-red-500 hover:bg-rose-50/50 hover:text-red-650 transition-colors" title="Regenerate">
                       <RotateCcw size={15} className={regenLoading ? 'animate-spin' : ''} />
                     </button>
                   </div>
                 </div>
 
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-600 space-y-2">
-                  <p className="font-semibold text-gray-700">How to use (n8n / Make / custom):</p>
-                  <pre className="bg-gray-900 text-green-400 rounded p-2 overflow-x-auto leading-relaxed whitespace-pre-wrap">{`POST ${typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'}/api/external/send
+                <div className="bg-slate-50/50 border border-slate-200/50 rounded-2xl p-4 text-xs text-slate-600 space-y-3 leading-relaxed shadow-inner">
+                  <p className="font-bold text-slate-700">How to use (n8n / Make / custom):</p>
+                  <pre className="bg-slate-900 text-slate-100 rounded-xl p-3.5 overflow-x-auto leading-relaxed font-mono text-[11px] whitespace-pre shadow-inner select-all">{`POST ${typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'}/api/external/send
 Headers:
   X-API-Key: ${showApiKey ? apiKey : '•'.repeat(20)}
   Content-Type: application/json
@@ -853,12 +852,12 @@ Body:
   "contact_id": 42,
   "message": "Hello from chatbot!"
 }`}</pre>
-                  <p className="text-gray-500">Response: <code className="bg-gray-200 px-1 rounded">{"{ success: true, message_id, wamid }"}</code></p>
+                  <p className="text-slate-550 font-medium">Response: <code className="bg-white border border-slate-200/60 px-1.5 py-0.5 rounded font-mono">{"{ success: true, message_id, wamid }"}</code></p>
                 </div>
               </>
             ) : (
-              <div className="flex flex-col items-center gap-3 py-4">
-                <p className="text-sm text-gray-400 text-center">No API key yet.</p>
+              <div className="flex flex-col items-center gap-3.5 py-6">
+                <p className="text-sm text-slate-400 font-medium text-center">No API key generated yet.</p>
                 <button
                   onClick={async () => {
                     setRegenLoading(true);
@@ -870,12 +869,11 @@ Body:
                     finally { setRegenLoading(false); }
                   }}
                   disabled={regenLoading}
-                  className="btn-primary flex items-center gap-2 text-sm">
+                  className="btn-primary flex items-center gap-2 text-xs font-bold py-2.5 px-5 rounded-xl shadow-sm">
                   {regenLoading
                     ? <><Loader2 size={14} className="animate-spin" /> Generating...</>
                     : <><Key size={14} /> Generate API Key</>}
                 </button>
-               
               </div>
             )}
           </div>
