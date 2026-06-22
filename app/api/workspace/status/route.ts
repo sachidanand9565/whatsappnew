@@ -37,14 +37,15 @@ export async function GET(req: NextRequest) {
     const payload = requireAuth(req);
 
     const rows = await query<RowDataPacket[]>(
-      'SELECT phone_number_id, access_token FROM workspaces WHERE id = ? LIMIT 1',
+      'SELECT phone_number_id, waba_id, access_token FROM workspaces WHERE id = ? LIMIT 1',
       [payload.workspaceId]
     );
 
     if (!rows.length) return apiError('Workspace not found', 404);
 
-    const { phone_number_id, access_token } = rows[0] as {
+    const { phone_number_id, waba_id, access_token } = rows[0] as {
       phone_number_id: string | null;
+      waba_id: string | null;
       access_token: string | null;
     };
 
@@ -55,12 +56,21 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const metaRes = await fetch(
-      `https://graph.facebook.com/v20.0/${phone_number_id}` +
-      `?fields=quality_rating,messaging_limit_tier,display_phone_number,verified_name,name_status` +
-      `&access_token=${access_token}`
-    );
-    const meta = await metaRes.json();
+    const [metaRes, wabaRes] = await Promise.all([
+      fetch(
+        `https://graph.facebook.com/v20.0/${phone_number_id}` +
+        `?fields=quality_rating,messaging_limit_tier,display_phone_number,verified_name,name_status,status,code_verification_status` +
+        `&access_token=${access_token}`
+      ).then((r) => r.json()),
+      waba_id
+        ? fetch(
+            `https://graph.facebook.com/v20.0/${waba_id}` +
+            `?fields=account_review_status` +
+            `&access_token=${access_token}`
+          ).then((r) => r.json())
+        : Promise.resolve(null),
+    ]);
+    const meta = metaRes;
 
     if (meta.error) {
       return NextResponse.json({
@@ -78,11 +88,19 @@ export async function GET(req: NextRequest) {
 
     const qualityRaw = (meta.quality_rating as string || 'NA').toUpperCase();
     const tierRaw    = (meta.messaging_limit_tier as string || '').toUpperCase();
+    // Meta's true live state — "CONNECTED" means the number is fully approved & sending live.
+    // Anything else (PENDING, FLAGGED, RESTRICTED...) means Meta review/approval isn't done yet,
+    // even though our app already has valid credentials stored for it.
+    const phoneStatus = (meta.status as string || '').toUpperCase();
+    const isLive = phoneStatus === 'CONNECTED';
 
     return NextResponse.json({
       success: true,
       data: {
         connected:     true,
+        is_live:       isLive,
+        phone_status:  phoneStatus || 'UNKNOWN',
+        account_review_status: wabaRes?.account_review_status || null,
         phone_number:  meta.display_phone_number || phone_number_id,
         verified_name: meta.verified_name || null,
         name_status:   meta.name_status   || null,

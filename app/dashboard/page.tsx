@@ -35,6 +35,9 @@ interface Summary {
 
 interface WaStatus {
   connected:      boolean;
+  is_live?:       boolean;
+  phone_status?:  string;
+  account_review_status?: string | null;
   phone_number?:  string;
   verified_name?: string;
   name_status?:   string;
@@ -55,7 +58,12 @@ export default function DashboardPage() {
   const [userRole, setUserRole]     = useState('');
   const [greeting, setGreeting]     = useState('Welcome back');
 
+  // Credentials are saved in our DB (app can talk to the Cloud API)
   const isConnected = !!(workspace?.phone_number_id && workspace?.waba_id);
+  // Meta has actually approved the number for live sending (status === 'CONNECTED').
+  // While Meta review is pending, isConnected is true but isLive is false.
+  const isLive = isConnected && !statusLoading && !!waStatus?.is_live;
+  const isPendingApproval = isConnected && !statusLoading && waStatus?.connected && !waStatus?.is_live;
 
   useEffect(() => {
     setUserRole(localStorage.getItem('userRole') || '');
@@ -230,7 +238,14 @@ export default function DashboardPage() {
               </div>
 
               <div className="shrink-0 flex items-center justify-end">
-                {isConnected ? (
+                {!isConnected ? (
+                  <Link href="/settings"
+                    className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400 text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-blue-500/10 transition-all hover:-translate-y-0.5 active:translate-y-0">
+                    <Facebook size={15} /> Connect Business Phone
+                  </Link>
+                ) : statusLoading ? (
+                  <div className="h-9 w-32 bg-slate-100 animate-pulse rounded-xl" />
+                ) : isLive ? (
                   <div className="flex flex-col items-end gap-1.5">
                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Connection Status</span>
                     <span className="bg-emerald-50 border border-emerald-200 text-emerald-600 text-xs font-extrabold px-3 py-1.5 rounded-xl flex items-center gap-1.5 glow-emerald-sm">
@@ -239,15 +254,28 @@ export default function DashboardPage() {
                     </span>
                   </div>
                 ) : (
-                  <Link href="/settings"
-                    className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400 text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-blue-500/10 transition-all hover:-translate-y-0.5 active:translate-y-0">
-                    <Facebook size={15} /> Connect Business Phone
-                  </Link>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Connection Status</span>
+                    <span className="bg-amber-50 border border-amber-200 text-amber-700 text-xs font-extrabold px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      PENDING META APPROVAL
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
 
             {/* Verification / error panels */}
+            {isPendingApproval && (
+              <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700 flex items-center gap-2">
+                <span className="text-base shrink-0">⏳</span>
+                <p>
+                  Credentials are saved and working, but Meta is still reviewing your business/number
+                  {waStatus?.phone_status ? ` (status: ${waStatus.phone_status})` : ''}. Full live sending unlocks once Meta approves it — this usually takes a few hours to a couple of days.
+                </p>
+              </div>
+            )}
+
             {waStatus?.api_error && (
               <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700 flex items-center gap-2">
                 <span className="text-base shrink-0">⚠️</span>
