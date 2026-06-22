@@ -9,6 +9,7 @@ export async function GET(req: Request) {
   const search = searchParams.get('search') || ''
   const status = searchParams.get('status') || ''
   const plan   = searchParams.get('plan') || ''   
+  
   let sql = `
     SELECT u.id, u.name, u.email, u.created_at,
            w.id AS workspace_id,
