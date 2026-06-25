@@ -230,10 +230,14 @@ export default function SettingsPage() {
   useEffect(() => {
     // BSP Embedded Signup sends waba_id + phone_number_id via postMessage
     function handleMessage(e: MessageEvent) {
-      if (e.origin !== 'https://www.facebook.com') return;
+      // Accept any facebook.com origin (www / web / business)
+      if (!/^https:\/\/[\w.-]*facebook\.com$/.test(e.origin)) return;
       try {
         const msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-        if (msg?.type === 'WA_EMBEDDED_SIGNUP' && msg?.event === 'FINISH' && msg?.data) {
+        if (msg?.type !== 'WA_EMBEDDED_SIGNUP') return;
+        // Capture IDs whenever they're present, regardless of exact event name
+        // (FINISH, FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING, etc.)
+        if (msg?.data?.waba_id && msg?.data?.phone_number_id) {
           embeddedDataRef.current = {
             waba_id:         String(msg.data.waba_id),
             phone_number_id: String(msg.data.phone_number_id),
@@ -298,20 +302,35 @@ export default function SettingsPage() {
         const code = res.authResponse?.code;
         if (!code) { toast.error('Facebook login cancelled or failed'); return; }
 
-        const embedded = embeddedDataRef.current;
-        if (!embedded?.waba_id || !embedded?.phone_number_id) {
-          toast.error('WhatsApp setup not completed inside the popup. Please try again and complete all steps.');
-          return;
-        }
-
-        // Exchange code → long-lived token, then connect
+        // Always exchange the code for a token first. By the time this network
+        // call resolves, Meta's postMessage (waba_id + phone_number_id) has
+        // almost always arrived. If it didn't, we fall back to letting the user
+        // pick their account from the list — so connect never dead-ends.
         setConnecting(true);
         apiFetch('/api/auth/meta/exchange', { method: 'POST', body: JSON.stringify({ code }) })
-          .then((r) => {
+          .then(async (r) => {
             const token = r.data?.access_token;
             if (!token) { toast.error('Token exchange failed'); return; }
             setFbToken(token);
-            return handleConnect(embedded.waba_id, embedded.phone_number_id, '', undefined, token);
+
+            const embedded = embeddedDataRef.current;
+            if (embedded?.waba_id && embedded?.phone_number_id) {
+              // Best case — popup told us exactly what to connect.
+              return handleConnect(embedded.waba_id, embedded.phone_number_id, '', undefined, token);
+            }
+
+            // Fallback — fetch the user's WABAs and open the picker modal.
+            const meta = await apiFetch('/api/auth/meta', {
+              method: 'POST',
+              body: JSON.stringify({ access_token: token }),
+            });
+            const list: WABAOption[] = meta.data || [];
+            if (list.length === 0) {
+              toast.error('No WhatsApp Business account found yet. Finish the setup in the popup, then try again.');
+              return;
+            }
+            setConnecting(false);
+            setWabas(list); // opens MetaConnectModal to choose WABA + phone
           })
           .catch((e) => toast.error(e?.message || 'Connect failed'))
           .finally(() => setConnecting(false));
