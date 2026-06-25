@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Identify workspace by phoneNumberId
-  const { messages, statuses, phoneNumberId, profileNames } = parseWebhookBody(body);
+  const { messages, statuses, echoes, phoneNumberId, profileNames } = parseWebhookBody(body);
 
   let workspaceId: number | null = null;
   let workspaceAccessToken = '';
@@ -233,6 +233,49 @@ export async function POST(req: NextRequest) {
     if (!flowProcessed && chatStatus !== 'intervened' && msg.type === 'text' && msg.text) {
       await processChatbot(workspaceId, contactId, msg.text, phoneNumberId);
     }
+  }
+
+  // ---- Process echoes (messages the business sent from the WhatsApp Business app) ----
+  for (const echo of echoes) {
+    if (!echo.to || !echo.wamid) continue;
+    const phone = normalizePhone(echo.to);
+
+    // Upsert the customer contact
+    await execute(
+      "INSERT IGNORE INTO contacts (workspace_id, phone, source, opted_in) VALUES (?, ?, 'outbound', 1)",
+      [workspaceId, phone]
+    );
+    const contactRow = await query<RowDataPacket[]>(
+      'SELECT id FROM contacts WHERE workspace_id = ? AND phone = ? LIMIT 1',
+      [workspaceId, phone]
+    );
+    if (contactRow.length === 0) continue;
+    const contactId = contactRow[0].id as number;
+
+    // Build readable content (same shapes used for inbound)
+    let content = '';
+    if (echo.type === 'text')          content = echo.text || '';
+    else if (echo.type === 'image')    { const d = echo.image as Record<string, unknown> | undefined; content = JSON.stringify({ __type: 'media', media_id: d?.id, mime_type: d?.mime_type, caption: d?.caption, workspace_id: workspaceId }); }
+    else if (echo.type === 'video')    { const d = echo.video as Record<string, unknown> | undefined; content = JSON.stringify({ __type: 'media', media_id: d?.id, mime_type: d?.mime_type, caption: d?.caption, workspace_id: workspaceId }); }
+    else if (echo.type === 'audio')    { const d = echo.audio as Record<string, unknown> | undefined; content = JSON.stringify({ __type: 'media', media_id: d?.id, mime_type: d?.mime_type, voice: !!d?.voice, workspace_id: workspaceId }); }
+    else if (echo.type === 'document') { const d = echo.document as Record<string, unknown> | undefined; content = JSON.stringify({ __type: 'media', media_id: d?.id, mime_type: d?.mime_type, filename: d?.filename, caption: d?.caption, workspace_id: workspaceId }); }
+    else if (echo.type === 'sticker')  { const d = echo.sticker as Record<string, unknown> | undefined; content = JSON.stringify({ __type: 'media', media_id: d?.id, mime_type: d?.mime_type || 'image/webp', workspace_id: workspaceId }); }
+    else if (echo.type === 'location') { const d = echo.location as Record<string, unknown> | undefined; content = JSON.stringify({ __type: 'location', latitude: d?.latitude, longitude: d?.longitude, name: d?.name, address: d?.address }); }
+    else                               content = `[${echo.type}]`;
+
+    const allowedTypes = ['text','image','document','audio','video','template','interactive','reaction','location','contacts','sticker','unknown'];
+    const dbMsgType = allowedTypes.includes(echo.type) ? echo.type : 'unknown';
+
+    // Store as an outbound message (INSERT IGNORE dedupes if we also sent it via API)
+    await insert(
+      `INSERT IGNORE INTO messages
+         (workspace_id, contact_id, wamid, direction, type, content, status, sent_at, created_at)
+       VALUES (?, ?, ?, 'outbound', ?, ?, 'sent', ?, ?)`,
+      [workspaceId, contactId, echo.wamid, dbMsgType, content, unixToUtc(echo.timestamp), utcNow()]
+    );
+
+    // Live update inbox (outbound — don't bump unread badge)
+    emitSSE({ type: 'new_message', workspaceId, contactId, direction: 'outbound' });
   }
 
   // ---- Process status updates ----

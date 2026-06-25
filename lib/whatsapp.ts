@@ -201,13 +201,32 @@ export interface StatusUpdate {
   errors?:   object[];
 }
 
+// Echo of a message the business sent from the WhatsApp Business app (coexistence).
+// Same shape as an incoming message but addressed `to` the customer.
+export interface EchoMessage {
+  wamid:        string;
+  to:           string;  // customer phone
+  timestamp:    string;
+  type:         string;
+  text?:        string;
+  image?:       object;
+  audio?:       object;
+  document?:    object;
+  video?:       object;
+  sticker?:     object;
+  location?:    object;
+  contacts?:    object[];
+  interactive?: object;
+}
+
 export function parseWebhookBody(body: Record<string, unknown>): {
   messages: IncomingMessage[];
   statuses: StatusUpdate[];
+  echoes:   EchoMessage[];
   phoneNumberId: string;
   profileNames: Record<string, string>; // waId → display name from WhatsApp profile
 } {
-  const result = { messages: [] as IncomingMessage[], statuses: [] as StatusUpdate[], phoneNumberId: '', profileNames: {} as Record<string, string> };
+  const result = { messages: [] as IncomingMessage[], statuses: [] as StatusUpdate[], echoes: [] as EchoMessage[], phoneNumberId: '', profileNames: {} as Record<string, string> };
   try {
     const entry     = (body.entry as Record<string, unknown>[])?.[0];
     const change    = (entry?.changes as Record<string, unknown>[])?.[0];
@@ -255,6 +274,26 @@ export function parseWebhookBody(body: Record<string, unknown>): {
         status:    s.status as StatusUpdate['status'],
         timestamp: s.timestamp as string,
         errors:    s.errors as object[],
+      });
+    }
+
+    // Echoes — messages the business sent from the WhatsApp Business app (coexistence)
+    const echoes = (value?.message_echoes as Record<string, unknown>[]) ?? [];
+    for (const m of echoes) {
+      result.echoes.push({
+        wamid:       m.id as string,
+        to:          m.to as string,
+        timestamp:   m.timestamp as string,
+        type:        m.type as string,
+        text:        (m.text as Record<string, unknown>)?.body as string,
+        image:       m.image as object,
+        audio:       m.audio as object,
+        document:    m.document as object,
+        video:       m.video as object,
+        sticker:     m.sticker as object,
+        location:    m.location as object,
+        contacts:    m.contacts as object[],
+        interactive: m.interactive as object,
       });
     }
   } catch {
