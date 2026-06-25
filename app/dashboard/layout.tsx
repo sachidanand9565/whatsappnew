@@ -156,7 +156,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sidebar (Desktop Side Drawer / Mobile Slide-over Drawer) */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-44 bg-gradient-to-b from-[#021f12] via-[#05110a] to-[#010804] text-white flex flex-col border-r border-white/5 shadow-2xl
-        transform transition-transform duration-205
+        transform transition-transform duration-200
         ${open ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 lg:static lg:inset-auto
       `}>
@@ -188,11 +188,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <p className="text-[9px] text-white/50 leading-none mt-0.5 uppercase tracking-wider font-extrabold">{currentWs?.plan || 'FREE'}</p>
               </div>
             </div>
-            <ChevronRight size={14} className={`text-white/40 transition-transform duration-205 flex-shrink-0 ${showSwitcher ? 'rotate-90 text-white' : ''}`} />
+            <ChevronRight size={14} className={`text-white/40 transition-transform duration-200 flex-shrink-0 ${showSwitcher ? 'rotate-90 text-white' : ''}`} />
           </button>
 
           {showSwitcher && (
-            <div className="absolute left-4 right-4 top-full mt-1.5 z-55 bg-white rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.3)] border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="absolute left-4 right-4 top-full mt-1.5 z-50 bg-white rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.3)] border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
               <p className="text-[10px] font-bold text-slate-400 uppercase px-4 pt-4 pb-2 tracking-wider">Your Projects</p>
               <ul className="max-h-56 overflow-y-auto px-2 pb-2 space-y-1">
                 {workspaces.map((ws) => (
