@@ -35,6 +35,7 @@ CREATE TABLE workspaces (
   chatbot_webhook_url       VARCHAR(500) NULL,      -- External chatbot webhook endpoint
   chatbot_webhook_secret    VARCHAR(200) NULL,      -- HMAC secret for X-Webhook-Signature
   plan                 ENUM('free','pro','enterprise') DEFAULT 'free',
+  wallet_balance       DECIMAL(10,2) NOT NULL DEFAULT 0,   -- INR; debited per template message sent
   is_active            TINYINT(1) DEFAULT 1,
   created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -242,6 +243,59 @@ CREATE TABLE tags (
   created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_ws_tag (workspace_id, name),
   FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- 11. MESSAGE PRICING (admin-configurable rate per template category)
+-- ============================================================
+CREATE TABLE message_pricing (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  category    ENUM('UTILITY','MARKETING','AUTHENTICATION') NOT NULL UNIQUE,
+  rate        DECIMAL(10,4) NOT NULL DEFAULT 0,
+  updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- 12. WALLET TRANSACTIONS (credit/debit ledger per workspace)
+-- ============================================================
+CREATE TABLE wallet_transactions (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  workspace_id    INT NOT NULL,
+  type            ENUM('credit','debit') NOT NULL,
+  amount          DECIMAL(10,2) NOT NULL,
+  balance_after   DECIMAL(10,2) NOT NULL,
+  reason          VARCHAR(255) NOT NULL,
+  reference_type  VARCHAR(50) NULL,           -- 'message' | 'campaign' | 'razorpay' | 'manual'
+  reference_id    VARCHAR(100) NULL,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+  INDEX idx_ws_created (workspace_id, created_at)
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- 13. WALLET RECHARGES
+-- Manual UPI top-ups (default flow): user scans the QR, pays, then
+-- submits the UTR/transaction ref here for admin approval.
+-- Razorpay columns are kept but unused while that flow is on hold.
+-- ============================================================
+CREATE TABLE wallet_recharges (
+  id                    INT AUTO_INCREMENT PRIMARY KEY,
+  workspace_id          INT NOT NULL,
+  payment_method        ENUM('upi','razorpay') NOT NULL DEFAULT 'upi',
+  amount                DECIMAL(10,2) NOT NULL,
+  utr_number            VARCHAR(100) NULL,        -- UPI transaction ref entered by the user
+  payment_note          VARCHAR(255) NULL,
+  razorpay_order_id     VARCHAR(100) NULL,
+  razorpay_payment_id   VARCHAR(100) NULL,
+  status                ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  reviewed_by           INT NULL,
+  reviewed_at           TIMESTAMP NULL,
+  rejection_reason      VARCHAR(255) NULL,
+  created_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+  FOREIGN KEY (reviewed_by)  REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_ws_status (workspace_id, status)
 ) ENGINE=InnoDB;
 
 -- ============================================================

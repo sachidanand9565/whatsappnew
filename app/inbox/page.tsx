@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { apiFetch } from '@/hooks/useApi';
 import { encryptId } from '@/lib/idCrypto';
 import MediaLibrary, { type MediaItem as MLItem } from '@/app/components/MediaLibrary';
-import { Send, Search, FileText, Image, FileVideo, File, ChevronDown, ChevronUp, Download, Music, MapPin, User, UserCheck, CheckCircle, Loader2, LayoutTemplate, X, Clock, ArrowRightLeft, Zap, Plus, Trash2, Tag, Eye, Paperclip, Maximize2, ArrowLeft } from 'lucide-react';
+import { Send, Search, FileText, Image, FileVideo, File, ChevronDown, ChevronUp, Download, Music, MapPin, User, UserCheck, CheckCircle, Loader2, LayoutTemplate, X, Clock, ArrowRightLeft, Zap, Plus, Trash2, Tag, Eye, Paperclip, Maximize2, ArrowLeft, Upload, Link as LinkIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Contact, Message } from '@/types';
 
@@ -553,10 +553,16 @@ export default function InboxPage() {
   const [actioning, setActioning]   = useState(false);
   const [tab, setTab]               = useState<'all' | 'requested' | 'intervened'>('requested');
   const [showTemplates, setShowTemplates] = useState(false);
-  const [templates, setTemplates]   = useState<{ id: number; name: string; language: string; body_text: string; status: string }[]>([]);
+  const [templates, setTemplates]   = useState<{ id: number; name: string; language: string; body_text: string; status: string; header_type: string; header_content: string }[]>([]);
   const [sendingTpl, setSendingTpl] = useState<number | null>(null);
-  const [tplForParams, setTplForParams] = useState<{ id: number; name: string; language: string; body_text: string } | null>(null);
+  const [tplForParams, setTplForParams] = useState<{ id: number; name: string; language: string; body_text: string; header_type: string; header_content: string } | null>(null);
   const [tplParamVals, setTplParamVals] = useState<string[]>([]);
+  // Header media (for templates with IMAGE/VIDEO/DOCUMENT header)
+  const [tplHeaderMode, setTplHeaderMode]       = useState<'upload' | 'url'>('upload');
+  const [tplHeaderMediaId, setTplHeaderMediaId] = useState('');
+  const [tplHeaderMediaUrl, setTplHeaderMediaUrl] = useState('');
+  const [tplHeaderFileName, setTplHeaderFileName] = useState('');
+  const [uploadingTplHeader, setUploadingTplHeader] = useState(false);
   const [showEmoji, setShowEmoji]       = useState(false);
   const inputRef                        = useRef<HTMLTextAreaElement>(null);
   const emojiRef                        = useRef<HTMLDivElement>(null);
@@ -912,18 +918,64 @@ export default function InboxPage() {
     }
   }
 
-  async function sendTemplate(templateName: string, language: string, tplId: number, params: string[] = []) {
+  async function uploadTplHeaderFile(file: File) {
+    setUploadingTplHeader(true);
+    const toastId = toast.loading(`Uploading ${file.name}…`);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const token = localStorage.getItem('token');
+      const upRes = await fetch('/api/media', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+      const upData = await upRes.json();
+      if (!upRes.ok) throw new Error(upData.error || 'Upload failed');
+      setTplHeaderMediaId(upData.data.mediaId);
+      setTplHeaderFileName(file.name);
+      toast.success('Uploaded!', { id: toastId });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Upload failed', { id: toastId });
+    } finally {
+      setUploadingTplHeader(false);
+    }
+  }
+
+  async function sendTemplate(templateName: string, language: string, tplId: number, params: string[] = [], headerType?: string) {
     if (!selected) return;
+    const isMediaHeader = headerType && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerType);
+    if (isMediaHeader && !tplHeaderMediaId && !tplHeaderMediaUrl.trim()) {
+      toast.error('Please upload a file or enter a URL for the header media');
+      return;
+    }
     shouldScrollRef.current = true;
     setSendingTpl(tplId);
     try {
+      const components: object[] = [];
+      if (isMediaHeader) {
+        const mediaType = headerType!.toLowerCase();
+        components.push({
+          type: 'header',
+          parameters: [{
+            type: mediaType,
+            [mediaType]: tplHeaderMediaId ? { id: tplHeaderMediaId } : { link: tplHeaderMediaUrl.trim() },
+          }],
+        });
+      }
+      if (params.length > 0) {
+        components.push({ type: 'body', parameters: params.map((val) => ({ type: 'text', text: String(val) })) });
+      }
       await apiFetch('/api/send-message', {
         method: 'POST',
-        body: JSON.stringify({ contactId: selected.id, type: 'template', templateName, language, templateParams: params }),
+        body: JSON.stringify({
+          contactId: selected.id, type: 'template', templateName, language,
+          templateParams: params,
+          ...(components.length > 0 ? { components } : {}),
+        }),
       });
       setShowTemplates(false);
       setTplForParams(null);
       setTplParamVals([]);
+      setTplHeaderMediaId('');
+      setTplHeaderMediaUrl('');
+      setTplHeaderFileName('');
       loadMessages(selected.id);
       toast.success('Template sent!');
     } catch (err) {
@@ -1652,16 +1704,68 @@ export default function InboxPage() {
                 <>
                   <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
                     <div className="flex items-center gap-2">
-                      <button onClick={() => setTplForParams(null)} className="text-gray-400 hover:text-gray-600">
+                      <button onClick={() => { setTplForParams(null); setTplHeaderMediaId(''); setTplHeaderMediaUrl(''); setTplHeaderFileName(''); }} className="text-gray-400 hover:text-gray-600">
                         <ArrowRightLeft size={14} className="rotate-180" />
                       </button>
                       <p className="text-sm font-semibold text-gray-700">Parameters</p>
                     </div>
-                    <button onClick={() => { setShowTemplates(false); setTplForParams(null); }}>
+                    <button onClick={() => { setShowTemplates(false); setTplForParams(null); setTplHeaderMediaId(''); setTplHeaderMediaUrl(''); setTplHeaderFileName(''); }}>
                       <X size={16} className="text-gray-400 hover:text-gray-600" />
                     </button>
                   </div>
                   <div className="overflow-y-auto max-h-72 p-4 space-y-3">
+                    {/* Header media (image/video/document) */}
+                    {['IMAGE', 'VIDEO', 'DOCUMENT'].includes(tplForParams.header_type) && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-gray-600">
+                            Header {tplForParams.header_type.charAt(0) + tplForParams.header_type.slice(1).toLowerCase()} (required)
+                          </p>
+                          <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
+                            <button
+                              onClick={() => setTplHeaderMode('upload')}
+                              className={`px-2 py-0.5 rounded-md text-[11px] font-medium flex items-center gap-1 ${tplHeaderMode === 'upload' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}>
+                              <Upload size={11} /> Upload
+                            </button>
+                            <button
+                              onClick={() => setTplHeaderMode('url')}
+                              className={`px-2 py-0.5 rounded-md text-[11px] font-medium flex items-center gap-1 ${tplHeaderMode === 'url' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}>
+                              <LinkIcon size={11} /> URL
+                            </button>
+                          </div>
+                        </div>
+                        {tplHeaderMode === 'upload' ? (
+                          <label className="flex items-center gap-2 border border-dashed border-gray-300 rounded-xl px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept={
+                                tplForParams.header_type === 'IMAGE' ? 'image/*'
+                                  : tplForParams.header_type === 'VIDEO' ? 'video/*'
+                                  : '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx'
+                              }
+                              onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (file) uploadTplHeaderFile(file);
+                              }}
+                            />
+                            {uploadingTplHeader
+                              ? <Loader2 size={14} className="animate-spin text-gray-400" />
+                              : <Upload size={14} className="text-gray-400" />}
+                            <span className="text-xs text-gray-500 truncate">
+                              {uploadingTplHeader ? 'Uploading…' : tplHeaderFileName ? `✓ ${tplHeaderFileName}` : `Choose ${tplForParams.header_type.toLowerCase()} file`}
+                            </span>
+                          </label>
+                        ) : (
+                          <input
+                            value={tplHeaderMediaUrl}
+                            onChange={e => { setTplHeaderMediaUrl(e.target.value); setTplHeaderMediaId(''); setTplHeaderFileName(''); }}
+                            placeholder={`https://example.com/file.${tplForParams.header_type === 'IMAGE' ? 'jpg' : tplForParams.header_type === 'VIDEO' ? 'mp4' : 'pdf'}`}
+                            className="input text-sm py-1.5 w-full"
+                          />
+                        )}
+                      </div>
+                    )}
                     {/* Variable inputs */}
                     {tplParamVals.map((val, i) => (
                       <div key={i} className="flex items-center gap-3">
@@ -1689,10 +1793,10 @@ export default function InboxPage() {
                     </div>
                   </div>
                   <div className="px-4 py-2.5 border-t flex gap-2">
-                    <button onClick={() => setTplForParams(null)} className="btn-secondary flex-1 text-sm">Back</button>
+                    <button onClick={() => { setTplForParams(null); setTplHeaderMediaId(''); setTplHeaderMediaUrl(''); setTplHeaderFileName(''); }} className="btn-secondary flex-1 text-sm">Back</button>
                     <button
-                      onClick={() => sendTemplate(tplForParams.name, tplForParams.language, tplForParams.id, tplParamVals)}
-                      disabled={sendingTpl === tplForParams.id}
+                      onClick={() => sendTemplate(tplForParams.name, tplForParams.language, tplForParams.id, tplParamVals, tplForParams.header_type)}
+                      disabled={sendingTpl === tplForParams.id || uploadingTplHeader}
                       className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-50">
                       {sendingTpl === tplForParams.id
                         ? <Loader2 size={14} className="animate-spin" />
@@ -1712,12 +1816,14 @@ export default function InboxPage() {
                       ? <p className="text-center text-xs text-gray-400 py-6">No approved templates</p>
                       : templates.map((t) => {
                           const varCount = extractVarCount(t.body_text);
+                          const hasMediaHeader = ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(t.header_type);
                           return (
                             <button key={t.id}
                               onClick={() => {
-                                if (varCount > 0) {
+                                if (varCount > 0 || hasMediaHeader) {
                                   setTplForParams(t);
                                   setTplParamVals(Array(varCount).fill(''));
+                                  setTplHeaderMediaId(''); setTplHeaderMediaUrl(''); setTplHeaderFileName(''); setTplHeaderMode('upload');
                                 } else {
                                   sendTemplate(t.name, t.language, t.id);
                                 }
@@ -1730,7 +1836,9 @@ export default function InboxPage() {
                                   ? <Loader2 size={14} className="animate-spin text-gray-400" />
                                   : varCount > 0
                                     ? <span className="text-[10px] text-blue-400 font-medium">{varCount} vars</span>
-                                    : <Send size={13} className="text-gray-300" />}
+                                    : hasMediaHeader
+                                      ? <span className="text-[10px] text-blue-400 font-medium">{t.header_type.toLowerCase()}</span>
+                                      : <Send size={13} className="text-gray-300" />}
                               </div>
                               <p className="text-xs text-gray-400 mt-0.5 truncate">{t.body_text}</p>
                             </button>

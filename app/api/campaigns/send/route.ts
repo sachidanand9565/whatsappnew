@@ -20,6 +20,7 @@ import { requireAuth } from '@/lib/auth';
 import { query, execute, insert } from '@/lib/db';
 import { apiSuccess, apiError, normalizePhone, utcNow } from '@/lib/utils';
 import { sendTemplateMessage } from '@/lib/whatsapp';
+import { getMessageRate, debitWallet, creditWallet, InsufficientBalanceError } from '@/lib/wallet';
 import { RowDataPacket } from 'mysql2';
 
 export async function POST(req: NextRequest) {
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     // ── Look up campaign by name ──────────────────────────────
     const rows = await query<RowDataPacket[]>(
-      `SELECT c.*, t.name as template_name, t.language,
+      `SELECT c.*, t.name as template_name, t.language, t.category,
               t.body_text, t.header_type, t.header_content, t.footer_text, t.buttons,
               w.access_token, w.phone_number_id
        FROM campaigns c
@@ -77,6 +78,20 @@ export async function POST(req: NextRequest) {
 
     if (!accessToken || !phoneNumberId)
       return apiError('WhatsApp credentials not configured', 400);
+
+    // ── Wallet check — debit before sending so unpaid messages never go out ──
+    const category = (campaign.category as string) || 'UTILITY';
+    const rate = await getMessageRate(category);
+    if (rate > 0) {
+      try {
+        await debitWallet(payload.workspaceId, rate, `${category} template sent: ${campaign.template_name}`, 'campaign', String(campaign.id));
+      } catch (err) {
+        if (err instanceof InsufficientBalanceError) {
+          return apiError(`Insufficient wallet balance. This ${category.toLowerCase()} template costs ₹${rate.toFixed(2)}. Please recharge your wallet.`, 402);
+        }
+        throw err;
+      }
+    }
 
     // ── Build variables map ───────────────────────────────────
     // templateParams array → { "1": val, "2": val, … }
@@ -133,14 +148,23 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Send via Meta API ─────────────────────────────────────
-    const result = await sendTemplateMessage(
-      accessToken,
-      phoneNumberId,
-      normalizedPhone,
-      campaign.template_name as string,
-      (campaign.language as string) || 'en',
-      components,
-    );
+    let result: Record<string, unknown>;
+    try {
+      result = await sendTemplateMessage(
+        accessToken,
+        phoneNumberId,
+        normalizedPhone,
+        campaign.template_name as string,
+        (campaign.language as string) || 'en',
+        components,
+      );
+    } catch (err) {
+      // Send failed after we already debited — refund since no message went out
+      if (rate > 0) {
+        await creditWallet(payload.workspaceId, rate, `Refund: failed send for ${campaign.template_name}`, 'campaign', String(campaign.id));
+      }
+      throw err;
+    }
 
     const wamid = (result?.messages as Record<string, unknown>[])?.[0]?.id as string | undefined;
 

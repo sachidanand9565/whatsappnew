@@ -8,6 +8,7 @@ import { query, execute, insert } from '@/lib/db';
 import { apiSuccess, apiError, utcNow } from '@/lib/utils';
 import { sendTemplateMessage } from '@/lib/whatsapp';
 import { decryptIdNum } from '@/lib/idCrypto';
+import { getMessageRate, debitWallet, creditWallet, InsufficientBalanceError } from '@/lib/wallet';
 import { RowDataPacket } from 'mysql2';
 
 type Params = { params: { id: string } };
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     // Load campaign + template + workspace creds
     const camps = await query<RowDataPacket[]>(
-      `SELECT c.*, t.name as tname, t.language, t.body_text,
+      `SELECT c.*, t.name as tname, t.language, t.body_text, t.category,
               t.header_type, t.header_content, t.footer_text, t.buttons,
               w.access_token, w.phone_number_id
        FROM campaigns c
@@ -72,16 +73,38 @@ export async function POST(req: NextRequest, { params }: Params) {
     const templateName = camp.tname as string;
     const language = (camp.language as string) || 'en';
     const bodyTextTemplate = (camp.body_text as string) || '';
+    const category = (camp.category as string) || 'UTILITY';
+    const rate = await getMessageRate(category);
 
     let sentCount = 0;
     let failedCount = 0;
+    let walletExhausted = false;
 
     // Send in batches of 10 with 1s delay between batches
     const BATCH_SIZE = 10;
     for (let i = 0; i < pendingContacts.length; i += BATCH_SIZE) {
+      if (walletExhausted) break;
       const batch = pendingContacts.slice(i, i + BATCH_SIZE);
 
       const batchPromises = batch.map(async (contact) => {
+        // Wallet check — debit before sending so we never pay Meta for a message we can't afford
+        if (rate > 0) {
+          try {
+            await debitWallet(payload.workspaceId, rate, `${category} campaign template: ${templateName}`, 'campaign', String(campaignId));
+          } catch (err) {
+            if (err instanceof InsufficientBalanceError) {
+              walletExhausted = true;
+              await execute(
+                `UPDATE campaign_contacts SET status = 'failed', error = 'Insufficient wallet balance' WHERE id = ?`,
+                [contact.cc_id]
+              );
+              failedCount++;
+              return;
+            }
+            throw err;
+          }
+        }
+
         try {
           // Build variables for this contact from mapping
           // varMapping example: { "1": "name", "2": "city" }
@@ -176,6 +199,10 @@ export async function POST(req: NextRequest, { params }: Params) {
 
           sentCount++;
         } catch (err) {
+          // Send failed after we already debited the wallet — refund since no message went out
+          if (rate > 0) {
+            await creditWallet(payload.workspaceId, rate, `Refund: failed send for ${templateName}`, 'campaign', String(campaignId));
+          }
           // Mark this contact as failed
           const errorMsg = err instanceof Error ? err.message : 'Unknown error';
           await execute(
@@ -201,17 +228,22 @@ export async function POST(req: NextRequest, { params }: Params) {
       }
     }
 
-    // Mark campaign as completed
+    // If wallet ran out mid-campaign, pause it (remaining contacts stay 'pending' so
+    // re-launching after a recharge picks up where it left off) instead of marking complete.
+    const finalStatus = walletExhausted ? 'paused' : 'completed';
     await execute(
-      'UPDATE campaigns SET status = ?, completed_at = ?, sent_count = ?, failed_count = ? WHERE id = ?',
-      ['completed', utcNow(), sentCount, failedCount, campaignId]
+      `UPDATE campaigns SET status = ?, ${walletExhausted ? '' : 'completed_at = ?, '}sent_count = ?, failed_count = ? WHERE id = ?`,
+      walletExhausted ? [finalStatus, sentCount, failedCount, campaignId] : [finalStatus, utcNow(), sentCount, failedCount, campaignId]
     );
 
     return apiSuccess({
-      message: `Campaign completed. Sent: ${sentCount}, Failed: ${failedCount}`,
+      message: walletExhausted
+        ? `Campaign paused — wallet balance exhausted. Sent: ${sentCount}, Failed: ${failedCount}. Recharge and re-launch to continue.`
+        : `Campaign completed. Sent: ${sentCount}, Failed: ${failedCount}`,
       total,
       sent: sentCount,
       failed: failedCount,
+      walletExhausted,
     });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === 'UNAUTHORIZED') return apiError('Unauthorized', 401);

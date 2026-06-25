@@ -6,7 +6,7 @@ import {
   MessageSquare, Users, Megaphone, CheckCircle, BookOpen,
   TrendingUp, Facebook, Settings, RefreshCw,
   Copy, ExternalLink, BarChart3, Bot, ChevronRight, Wifi, WifiOff,
-  Sparkles, ShieldCheck, CreditCard, ArrowUpRight, Zap
+  Sparkles, ShieldCheck, CreditCard, ArrowUpRight, Zap, Wallet, Plus,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
@@ -57,6 +57,8 @@ export default function DashboardPage() {
   const [statusLoading, setStatusLoading] = useState(true);
   const [userRole, setUserRole]     = useState('');
   const [greeting, setGreeting]     = useState('Welcome back');
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletLoading, setWalletLoading] = useState(true);
 
   // Credentials are saved in our DB (app can talk to the Cloud API)
   const isConnected = !!(workspace?.phone_number_id && workspace?.waba_id);
@@ -88,6 +90,10 @@ export default function DashboardPage() {
         setChartData(r.data.charts.daily_messages);
       }
     }).finally(() => setLoading(false));
+
+    apiFetch('/api/wallet').then((r) => {
+      if (r?.data) setWalletBalance(r.data.balance);
+    }).finally(() => setWalletLoading(false));
   }, []);
 
   function copyText(text: string) {
@@ -407,6 +413,39 @@ export default function DashboardPage() {
 
         {/* ── Right Sidebar (1 Column) ─────────────────────────── */}
         <div className="space-y-6">
+
+          {/* Wallet Card */}
+          <div className="glass-card bg-white border-slate-200 shadow-md p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <Wallet size={12} /> Wallet Balance
+              </span>
+              <Link href="/wallet" className="text-xs text-emerald-600 font-bold hover:underline">
+                History
+              </Link>
+            </div>
+
+            <div className="flex items-center justify-between bg-slate-50 border border-slate-200/80 p-3.5 rounded-xl">
+              <div className="space-y-0.5">
+                <p className="text-xs text-slate-400 font-bold">Available Credits</p>
+                {walletLoading ? (
+                  <div className="h-6 w-20 bg-slate-200 animate-pulse rounded mt-1" />
+                ) : (
+                  <p className={`text-xl font-black tracking-wide ${(walletBalance || 0) <= 0 ? 'text-rose-600' : 'text-slate-800'}`}>
+                    ₹{(walletBalance || 0).toFixed(2)}
+                  </p>
+                )}
+              </div>
+              <Link href="/wallet"
+                className="flex items-center gap-1 text-xs font-bold px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-sm">
+                <Plus size={11} /> Add
+              </Link>
+            </div>
+
+            {!walletLoading && (walletBalance || 0) <= 0 && (
+              <p className="text-[11px] text-rose-600 font-semibold">Wallet empty — template messages are blocked until you recharge.</p>
+            )}
+          </div>
 
           {/* Premium Account Profile Card */}
           <div className="glass-card bg-white border-slate-200 shadow-lg shadow-slate-100/50 overflow-hidden relative group">
