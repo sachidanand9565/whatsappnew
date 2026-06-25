@@ -132,7 +132,24 @@ export async function POST(
     }
 
     // ── Build template components ────────────────────────────
-    const components: { type: string; parameters: { type: string; text: string }[] }[] = [];
+    const components: Record<string, unknown>[] = [];
+
+    // Media header (IMAGE/DOCUMENT/VIDEO) — from the campaign's stored media
+    const headerType = campaign.header_type as string;
+    if (['IMAGE', 'DOCUMENT', 'VIDEO'].includes(headerType)) {
+      let storedVars: Record<string, string> = {};
+      try { storedVars = JSON.parse((campaign.template_vars as string) || '{}'); } catch { storedVars = {}; }
+      const mType = storedVars.__header_media_type;
+      const mVal  = storedVars.__header_media_value;
+      const mediaType = headerType.toLowerCase();
+      if (mVal) {
+        components.push({
+          type: 'header',
+          parameters: [{ type: mediaType, [mediaType]: mType === 'id' ? { id: mVal } : { link: mVal } }],
+        });
+      }
+    }
+
     if (variables && Object.keys(variables).length > 0) {
       const sortedKeys = Object.keys(variables).sort((a, b) => Number(a) - Number(b));
       components.push({

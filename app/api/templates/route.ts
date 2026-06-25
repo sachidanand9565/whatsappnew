@@ -8,6 +8,53 @@ import { query, insert, execute } from '@/lib/db';
 import { apiSuccess, apiError } from '@/lib/utils';
 import { RowDataPacket } from 'mysql2';
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+
+export const runtime = 'nodejs';
+
+const GRAPH = 'v20.0';
+
+// Sample files bundled in /public, uploaded to Meta as the header example.
+// Meta requires a `header_handle` (resumable upload) for media examples — a
+// plain header_url is rejected with a generic "unknown error".
+const SAMPLE_HEADER_FILES: Record<string, { file: string; type: string }> = {
+  IMAGE:    { file: 'logo.png',   type: 'image/png' },
+  DOCUMENT: { file: 'sample.pdf', type: 'application/pdf' },
+  VIDEO:    { file: 'sample.mp4', type: 'video/mp4' },
+};
+
+// Resumable-upload a bundled sample file → returns the header_handle.
+async function uploadSampleHeaderHandle(headerType: string, accessToken: string, appId: string): Promise<string> {
+  const cfg = SAMPLE_HEADER_FILES[headerType];
+  if (!cfg) throw new Error(`No sample file for header type ${headerType}`);
+
+  const filePath = path.join(process.cwd(), 'public', cfg.file);
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Sample file public/${cfg.file} is missing on the server`);
+  }
+  const buf = fs.readFileSync(filePath);
+
+  // Step 1 — open an upload session
+  const startRes = await fetch(
+    `https://graph.facebook.com/${GRAPH}/${appId}/uploads` +
+      `?file_name=${encodeURIComponent(cfg.file)}&file_length=${buf.length}` +
+      `&file_type=${encodeURIComponent(cfg.type)}&access_token=${accessToken}`,
+    { method: 'POST' }
+  );
+  const startData = await startRes.json();
+  if (!startData.id) throw new Error(startData.error?.message || 'Upload session failed');
+
+  // Step 2 — upload bytes, get the handle
+  const upRes = await fetch(`https://graph.facebook.com/${GRAPH}/${startData.id}`, {
+    method: 'POST',
+    headers: { Authorization: `OAuth ${accessToken}`, file_offset: '0' },
+    body: buf,
+  });
+  const upData = await upRes.json();
+  if (!upData.h) throw new Error(upData.error?.message || 'Sample upload failed');
+  return upData.h as string;
+}
 
 // ─── GET ─────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -33,6 +80,7 @@ export async function POST(req: NextRequest) {
     const {
       name, language, category,
       header_type, header_content,
+      header_handle,      // resumable-upload handle for uploaded media headers
       body_text, footer_text,
       buttons = [],
       variables = [],
@@ -40,6 +88,18 @@ export async function POST(req: NextRequest) {
     } = body;
 
     if (!name || !body_text) return apiError('Name and body text are required');
+
+    // ── 0. Block duplicates: same name + language in this workspace ──
+    // (Meta's templates are unique by name+language, so catch it locally
+    //  before submitting and showing a confusing Meta error.)
+    const lang = language || 'en';
+    const dup = await query<RowDataPacket[]>(
+      'SELECT id FROM templates WHERE workspace_id = ? AND LOWER(name) = LOWER(?) AND language = ? LIMIT 1',
+      [payload.workspaceId, name, lang]
+    );
+    if (dup.length > 0) {
+      return apiError(`A template named "${name}" already exists in ${lang}. Please use a different name.`, 409);
+    }
 
     // ── 1. Resolve credentials: DB → ENV fallback ────────────
     const ws = await query<RowDataPacket[]>(
@@ -79,9 +139,19 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      // Media headers need a resumable-upload handle for the example. If the
+      // client didn't supply one, auto-upload the bundled sample for this type.
+      let mediaHandle: string | undefined = header_handle;
+      if (['IMAGE', 'DOCUMENT', 'VIDEO'].includes(header_type) && !mediaHandle) {
+        const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || process.env.FACEBOOK_APP_ID || '';
+        if (!appId) throw new Error('Facebook App ID not configured (NEXT_PUBLIC_FACEBOOK_APP_ID)');
+        mediaHandle = await uploadSampleHeaderHandle(header_type, accessToken, appId);
+      }
+
       const components = buildMetaComponents({
         header_type,
         header_content,
+        header_handle: mediaHandle,
         body_text,
         footer_text,
         buttons,
@@ -125,7 +195,16 @@ export async function POST(req: NextRequest) {
       if (axios.isAxiosError(metaErr)) {
         const errData = metaErr.response?.data as Record<string, unknown> | undefined;
         const fbError = (errData?.error as Record<string, unknown>) || {};
-        metaError = (fbError.message as string) || metaErr.message;
+        // Meta's generic `message` is just "Invalid parameter" — the real reason
+        // is in error_user_title / error_user_msg / error_data.details. Surface it.
+        const errorData = (fbError.error_data as Record<string, unknown>) || {};
+        const title  = fbError.error_user_title as string | undefined;
+        const userMsg =
+          (fbError.error_user_msg as string) ||
+          (errorData.details as string) ||
+          (fbError.message as string) ||
+          metaErr.message;
+        metaError = title && title !== userMsg ? `${title} — ${userMsg}` : userMsg;
         console.error('[Meta Template Error]', JSON.stringify(errData, null, 2));
       } else if (metaErr instanceof Error) {
         metaError = metaErr.message;
@@ -153,28 +232,26 @@ export async function POST(req: NextRequest) {
 function buildMetaComponents(opts: {
   header_type:    string;
   header_content: string;
+  header_handle?: string;
   body_text:      string;
   footer_text:    string;
   buttons:        { type: string; text: string; url?: string; url_type?: string; phone?: string }[];
   var_samples:    Record<string, string>;
 }) {
-  const { header_type, header_content, body_text, footer_text, buttons, var_samples } = opts;
+  const { header_type, header_content, header_handle, body_text, footer_text, buttons, var_samples } = opts;
   const components: object[] = [];
 
   // ── HEADER component ──────────────────────────────────────
-  if (header_type && header_type !== 'NONE' && header_content) {
-    if (header_type === 'TEXT') {
-      components.push({ type: 'HEADER', format: 'TEXT', text: header_content });
-    } else {
-      // IMAGE / DOCUMENT / VIDEO
-      components.push({
-        type:    'HEADER',
-        format:  header_type,
-        example: {
-          header_url: [header_content],
-        },
-      });
-    }
+  if (header_type === 'TEXT' && header_content) {
+    components.push({ type: 'HEADER', format: 'TEXT', text: header_content });
+  } else if (['IMAGE', 'DOCUMENT', 'VIDEO'].includes(header_type) && header_handle) {
+    // Media example MUST be a resumable-upload handle — Meta rejects header_url
+    // with a generic "unknown error". The handle is generated in the POST handler.
+    components.push({
+      type:    'HEADER',
+      format:  header_type,
+      example: { header_handle: [header_handle] },
+    });
   }
 
   // ── BODY component ────────────────────────────────────────

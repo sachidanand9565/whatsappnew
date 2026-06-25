@@ -83,20 +83,33 @@ export async function POST(req: NextRequest) {
     let resolvedContactIds: number[] = contact_ids || [];
 
     if (csv_contacts && Array.isArray(csv_contacts) && csv_contacts.length > 0) {
-      // Upsert contacts from CSV
-      for (const row of csv_contacts) {
-        const phone = normalizePhone(row.phone || '');
-        if (!phone) continue;
+      // Normalize + dedupe rows once
+      const cleanRows = csv_contacts
+        .map((row: Record<string, string>) => ({
+          phone:  normalizePhone(row.phone || ''),
+          name:   row.name || null,
+          email:  row.email || null,
+          city:   row.city || null,
+          source: row.source || 'csv_campaign',
+        }))
+        .filter((r: { phone: string }) => r.phone);
+
+      // Bulk upsert in chunks (one query per ~500 rows instead of one per contact)
+      const CHUNK = 500;
+      for (let i = 0; i < cleanRows.length; i += CHUNK) {
+        const chunk = cleanRows.slice(i, i + CHUNK);
+        const placeholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, 1)').join(',');
+        const values = chunk.flatMap((r: { phone: string; name: string | null; email: string | null; city: string | null; source: string }) =>
+          [payload.workspaceId, r.phone, r.name, r.email, r.city, r.source]
+        );
         await execute(
-          'INSERT IGNORE INTO contacts (workspace_id, phone, name, email, city, source, opted_in) VALUES (?, ?, ?, ?, ?, ?, 1)',
-          [payload.workspaceId, phone, row.name || null, row.email || null, row.city || null, row.source || 'csv_campaign']
+          `INSERT IGNORE INTO contacts (workspace_id, phone, name, email, city, source, opted_in) VALUES ${placeholders}`,
+          values
         );
       }
 
       // Collect all valid phones
-      const validPhones = csv_contacts
-        .map((row: Record<string, string>) => normalizePhone(row.phone || ''))
-        .filter(Boolean);
+      const validPhones = cleanRows.map((r: { phone: string }) => r.phone);
 
       if (validPhones.length > 0) {
         const placeholders = validPhones.map(() => '?').join(',');

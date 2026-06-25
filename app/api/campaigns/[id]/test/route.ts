@@ -99,7 +99,13 @@ export async function POST(req: NextRequest, { params }: Params) {
     return apiSuccess({ sent: true, phone: normalizedPhone, wamid, message: 'Test message sent successfully!' });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === 'UNAUTHORIZED') return apiError('Unauthorized', 401);
-    console.error('[campaign/test]', err);
-    return apiError('Failed to send test message', 500);
+    // Surface the real Meta reason instead of a generic failure.
+    const fb = (err as { response?: { data?: { error?: Record<string, unknown> } } })?.response?.data?.error;
+    const errData = (fb?.error_data as Record<string, unknown>) || {};
+    const detail =
+      (fb?.error_user_title ? `${fb.error_user_title}: ` : '') +
+      ((fb?.error_user_msg as string) || (errData.details as string) || (fb?.message as string) || '');
+    console.error('[campaign/test]', JSON.stringify((err as { response?: { data?: unknown } })?.response?.data || (err as Error)?.message));
+    return apiError(detail ? `Meta: ${detail}` : 'Failed to send test message', 500);
   }
 }

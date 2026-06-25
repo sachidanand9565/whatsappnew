@@ -422,6 +422,7 @@ function CampaignWizard({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   const [csvError, setCsvError]           = useState('');
   const [selectedContactIds, setSelectedContactIds] = useState<number[]>([]);
   const [varMapping, setVarMapping]       = useState<Record<string, string>>({});
+  const [phoneColumn, setPhoneColumn]     = useState('');
   const [scheduledAt, setScheduledAt]     = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -494,6 +495,7 @@ function CampaignWizard({ onClose, onSaved }: { onClose: () => void; onSaved: ()
     setCsvError('');
     setCsvData([]);
     setCsvColumns([]);
+    setPhoneColumn('');
 
     try {
       const text = await file.text();
@@ -506,13 +508,13 @@ function CampaignWizard({ onClose, onSaved }: { onClose: () => void; onSaved: ()
       // Parse header
       const headers = lines[0].split(',').map((h) => h.trim().replace(/^"|"$/g, '').toLowerCase());
 
-      // Check for phone column
-      if (!headers.includes('phone') && !headers.includes('mobile') && !headers.includes('number') && !headers.includes('whatsapp')) {
-        setCsvError('CSV must have a "phone" column (or "mobile", "number", "whatsapp")');
-        return;
-      }
+      // Auto-detect the phone column: exact name first, then fuzzy match
+      const detectedPhone =
+        headers.find((h) => ['phone', 'mobile', 'number', 'whatsapp', 'msisdn', 'contact'].includes(h)) ||
+        headers.find((h) => /(phone|mobile|whats|msisdn|^number$|contact\s*no)/.test(h)) ||
+        '';
 
-      // Parse rows (limit to 10000)
+      // Parse rows (limit to 10000) — keep ALL columns so any can be mapped
       const rows: CsvRow[] = [];
       const maxRows = Math.min(lines.length, 10001); // +1 for header
       for (let i = 1; i < maxRows; i++) {
@@ -521,25 +523,23 @@ function CampaignWizard({ onClose, onSaved }: { onClose: () => void; onSaved: ()
         headers.forEach((h, idx) => {
           row[h] = vals[idx] || '';
         });
-        // Normalize phone column
-        const phoneCol = headers.find((h) => ['phone', 'mobile', 'number', 'whatsapp'].includes(h));
-        if (phoneCol && row[phoneCol]) {
-          row.phone = row[phoneCol];
-        }
-        if (row.phone) rows.push(row);
+        if (detectedPhone) row.phone = row[detectedPhone];
+        rows.push(row);
       }
 
       setCsvColumns(headers);
       setCsvData(rows);
+      setPhoneColumn(detectedPhone);
 
-      // Auto-map variables if column names match common patterns
+      // Auto-map each template variable to a likely column (never the phone column)
       if (templateVars.length > 0) {
+        const used = new Set<string>([detectedPhone, 'phone']);
         const autoMap: Record<string, string> = {};
         templateVars.forEach((v) => {
-          // Try to auto-map first var to "name", second to common fields
-          if (!autoMap[v] && headers.includes('name') && !Object.values(autoMap).includes('name')) {
-            autoMap[v] = 'name';
-          }
+          const guess = headers.find(
+            (h) => !used.has(h) && /(name|first|last|city|email|order|amount|date|id|pincode|product)/.test(h)
+          );
+          if (guess) { autoMap[v] = guess; used.add(guess); }
         });
         setVarMapping(autoMap);
       }
@@ -547,6 +547,12 @@ function CampaignWizard({ onClose, onSaved }: { onClose: () => void; onSaved: ()
       setCsvError('Failed to parse CSV file');
     }
   }, [templateVars.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-map the phone value across all rows when the phone column changes
+  function changePhoneColumn(col: string) {
+    setPhoneColumn(col);
+    setCsvData((prev) => prev.map((r) => ({ ...r, phone: col ? (r[col] || '') : '' })));
+  }
 
   function toggleContact(id: number) {
     setSelectedContactIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
@@ -572,13 +578,15 @@ function CampaignWizard({ onClose, onSaved }: { onClose: () => void; onSaved: ()
       if (isApi) {
         body.contact_ids = [];
       } else if (audienceMode === 'csv' && csvData.length > 0) {
-        body.csv_contacts = csvData.map((row) => ({
-          name: row.name || null,
-          phone: row.phone || '',
-          email: row.email || null,
-          city: row.city || null,
-          source: row.source || 'csv_campaign',
-        }));
+        body.csv_contacts = csvData
+          .filter((row) => (row.phone || '').trim())
+          .map((row) => ({
+            name: row.name || null,
+            phone: row.phone || '',
+            email: row.email || null,
+            city: row.city || null,
+            source: row.source || 'csv_campaign',
+          }));
       } else {
         body.contact_ids = selectedContactIds;
       }
@@ -672,14 +680,19 @@ function CampaignWizard({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   }
 
   // Audience count
-  const audienceCount = audienceMode === 'csv' ? csvData.length : selectedContactIds.length;
+  // For CSV, only count rows that have a phone in the selected column
+  const csvValidCount = csvData.filter((r) => (r.phone || '').trim()).length;
+  const audienceCount = audienceMode === 'csv' ? csvValidCount : selectedContactIds.length;
 
   // Step validation
   const hasMediaHeader = selectedTemplate && ['IMAGE', 'DOCUMENT', 'VIDEO'].includes(selectedTemplate.header_type);
   const isMediaHeaderFilled = !hasMediaHeader || headerMediaValue.trim();
 
+  // CSV mode needs a phone column chosen; all template variables must be mapped
+  const phoneOk   = audienceMode !== 'csv' || !!phoneColumn;
+  const varsMapped = templateVars.every((v) => varMapping[v]);
   const canGoStep2 = campaignName.trim() && selectedTemplate;
-  const canGoStep3 = (isApi || audienceCount > 0) && isMediaHeaderFilled;
+  const canGoStep3 = (isApi || audienceCount > 0) && isMediaHeaderFilled && phoneOk && varsMapped;
 
   // Render template preview bubble
   function TemplatePreview({ template, mediaType, mediaValue }: { template: Template; mediaType?: string; mediaValue?: string }) {
@@ -1193,6 +1206,33 @@ function CampaignWizard({ onClose, onSaved }: { onClose: () => void; onSaved: ()
                         </div>
                       )}
                     </div>
+                  )}
+                </div>
+              )}
+
+              {/* Phone / WhatsApp number column (CSV) */}
+              {audienceMode === 'csv' && csvColumns.length > 0 && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <Phone size={14} className="inline mr-1 text-green-600" />
+                    Phone / WhatsApp Number Column
+                  </label>
+                  <select
+                    value={phoneColumn}
+                    onChange={(e) => changePhoneColumn(e.target.value)}
+                    className="input !py-2"
+                  >
+                    <option value="">— Select phone column —</option>
+                    {csvColumns.map((col) => (
+                      <option key={col} value={col}>{col}</option>
+                    ))}
+                  </select>
+                  {phoneColumn ? (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✓ Auto-detected &quot;{phoneColumn}&quot; — {csvData.filter((r) => (r.phone || '').trim()).length} contacts with a number
+                    </p>
+                  ) : (
+                    <p className="text-xs text-red-500 mt-1">Select which column holds the phone number</p>
                   )}
                 </div>
               )}

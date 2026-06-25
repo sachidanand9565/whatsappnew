@@ -25,6 +25,7 @@ interface TemplateForm {
   category:       string;
   header_type:    'NONE' | 'TEXT' | 'IMAGE' | 'DOCUMENT' | 'VIDEO';
   header_content: string;
+  header_handle?: string;   // resumable-upload handle when media is uploaded (not a URL)
   body_text:      string;
   footer_text:    string;
 }
@@ -708,8 +709,14 @@ function TemplateModal({
     e.preventDefault();
     if (!form.name)      { toast.error('Template name required'); return; }
     if (!form.body_text) { toast.error('Body text required'); return; }
-    if (form.header_type !== 'NONE' && !form.header_content) {
-      toast.error('Header content required'); return;
+    if (form.header_type === 'TEXT' && !form.header_content) {
+      toast.error('Header text required'); return;
+    }
+    // Meta requires a sample value for every variable in the body
+    const missingSample = detectedVars.find((v) => !varSamples[v]?.trim());
+    if (missingSample) {
+      toast.error(`Enter a sample value for ${missingSample} — Meta needs it to review the template`);
+      return;
     }
     setSaving(true);
     try {
@@ -717,7 +724,7 @@ function TemplateModal({
       const res = await fetch('/api/templates', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...form, buttons, variables: detectedVars, var_samples: varSamples }),
+        body: JSON.stringify({ ...form, header_handle: form.header_handle || undefined, buttons, variables: detectedVars, var_samples: varSamples }),
       });
       const data = await res.json();
       if (res.status === 422) {
@@ -809,7 +816,7 @@ function TemplateModal({
               <div className="flex gap-1.5 flex-wrap">
                 {HEADER_TYPE_OPTIONS.map((opt) => (
                   <button key={opt.value} type="button"
-                    onClick={() => setForm({ ...form, header_type: opt.value as TemplateForm['header_type'], header_content: '' })}
+                    onClick={() => setForm({ ...form, header_type: opt.value as TemplateForm['header_type'], header_content: '', header_handle: '' })}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium border transition-all
                       ${form.header_type === opt.value
                         ? 'bg-green-600 text-white border-green-600'
@@ -824,15 +831,9 @@ function TemplateModal({
                   className="input" placeholder="Header text (max 60 chars)" maxLength={60} required />
               )}
               {['IMAGE', 'DOCUMENT', 'VIDEO'].includes(form.header_type) && (
-                <div>
-                  <input value={form.header_content}
-                    onChange={(e) => setForm({ ...form, header_content: e.target.value })}
-                    className="input" placeholder="https://example.com/file.jpg" type="url" required />
-                  <p className="text-xs text-gray-400 mt-1">
-                    {form.header_type === 'IMAGE' && 'JPG/PNG, max 5MB'}
-                    {form.header_type === 'DOCUMENT' && 'PDF, max 100MB'}
-                    {form.header_type === 'VIDEO' && 'MP4, max 16MB'}
-                  </p>
+                <div className="bg-blue-50/60 border border-blue-200/60 rounded-lg p-3 text-xs text-blue-700 leading-relaxed">
+                  A sample {form.header_type.toLowerCase()} is used automatically for Meta&apos;s review.
+                  You attach the real {form.header_type.toLowerCase()} when sending the template — no upload needed here.
                 </div>
               )}
             </div>
@@ -853,7 +854,7 @@ function TemplateModal({
               </div>
               <textarea value={form.body_text}
                 onChange={(e) => setForm({ ...form, body_text: e.target.value })}
-                className="input resize-none" rows={5}
+                className="input resize-y min-h-[220px]" rows={12}
                 placeholder={'Hello {{1}},\n\nYour order *{{2}}* is confirmed! 🎉\n\nDelivery: {{3}}'} required />
               <p className="text-xs text-gray-400">*bold* _italic_ ~strikethrough~ · {form.body_text.length}/1024</p>
             </div>
@@ -862,18 +863,18 @@ function TemplateModal({
             {detectedVars.length > 0 && (
               <div className="border border-purple-200 bg-purple-50 rounded-xl p-4 space-y-3">
                 <div>
-                  <p className="text-sm font-semibold text-purple-800">Sample Values for Variables</p>
-                  <p className="text-xs text-purple-600 mt-0.5">Meta requires examples to review your template</p>
+                  <p className="text-sm font-semibold text-purple-800">Sample Values for Variables <span className="text-red-500">*</span></p>
+                  <p className="text-xs text-purple-600 mt-0.5">Required — Meta needs examples to review your template</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {detectedVars.map((v) => (
                     <div key={v}>
                       <label className="text-xs font-medium text-purple-700 mb-1 block">
-                        Sample for <code className="bg-purple-200 px-1 rounded">{v}</code>
+                        Sample for <code className="bg-purple-200 px-1 rounded">{v}</code> <span className="text-red-500">*</span>
                       </label>
                       <input value={varSamples[v] || ''}
                         onChange={(e) => setVarSamples({ ...varSamples, [v]: e.target.value })}
-                        className="input text-sm"
+                        className="input text-sm" required
                         placeholder={v === '{{1}}' ? 'John' : v === '{{2}}' ? 'ORD-123' : 'sample'} />
                     </div>
                   ))}
