@@ -283,7 +283,10 @@ export default function SettingsPage() {
   }
 
   // ── BSP Embedded Signup (when CONFIG_ID is set) ──────────────
-  function loginWithFacebook() {
+  // featureType '' = standard Cloud API onboarding (new/imported number)
+  // featureType 'whatsapp_business_app_onboarding' = onboard a number that is
+  // already on the WhatsApp Business app (coexistence).
+  function loginWithFacebook(featureType: '' | 'whatsapp_business_app_onboarding' = '') {
     if (!window.FB) { toast.error('Facebook SDK not loaded yet'); return; }
     embeddedDataRef.current = null;
     setFbLoading(true);
@@ -316,7 +319,7 @@ export default function SettingsPage() {
         config_id:                    CONFIG_ID,
         response_type:                'code',
         override_default_response_type: true,
-        extras: { setup: {}, featureType: '', sessionInfoVersion: '3' },
+        extras: { setup: {}, featureType, sessionInfoVersion: '3' },
       });
     } else {
       // Fallback (no BSP access yet) — FB login → manual WABA ID entry
@@ -544,7 +547,7 @@ export default function SettingsPage() {
                 </div>
                 {APP_ID && (
                   <button
-                    onClick={loginWithFacebook}
+                    onClick={() => loginWithFacebook()}
                     disabled={!fbLoaded || fbLoading || connecting}
                     className="text-xs text-blue-600 hover:text-blue-800 font-bold disabled:opacity-50 flex items-center gap-1.5 ml-2">
                     {(fbLoading || connecting) && <Loader2 size={12} className="animate-spin" />}
@@ -553,14 +556,27 @@ export default function SettingsPage() {
                 )}
               </div>
             ) : (
-              <button
-                onClick={loginWithFacebook}
-                disabled={!APP_ID || !fbLoaded || fbLoading || connecting}
-                className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 shadow-md shadow-blue-600/10 active:translate-y-0.5 duration-200 text-sm">
-                {(fbLoading || connecting)
-                  ? <><Loader2 size={18} className="animate-spin" /> Connecting...</>
-                  : <><Facebook size={18} /> {BSP_READY ? 'Setup WhatsApp Business' : 'Connect via Facebook'}</>}
-              </button>
+              <div className="space-y-2.5">
+                <button
+                  onClick={() => loginWithFacebook()}
+                  disabled={!APP_ID || !fbLoaded || fbLoading || connecting}
+                  className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 shadow-md shadow-blue-600/10 active:translate-y-0.5 duration-200 text-sm">
+                  {(fbLoading || connecting)
+                    ? <><Loader2 size={18} className="animate-spin" /> Connecting...</>
+                    : <><Facebook size={18} /> {BSP_READY ? 'Setup WhatsApp Business' : 'Connect via Facebook'}</>}
+                </button>
+
+                {/* Coexistence: onboard a number already on the WhatsApp Business app */}
+                {BSP_READY && (
+                  <button
+                    onClick={() => loginWithFacebook('whatsapp_business_app_onboarding')}
+                    disabled={!fbLoaded || fbLoading || connecting}
+                    className="w-full flex items-center justify-center gap-2.5 bg-white hover:bg-green-50 text-green-700 font-bold py-3 rounded-xl transition-all disabled:opacity-50 border-2 border-green-200 active:translate-y-0.5 duration-200 text-sm">
+                    <MessageSquare size={17} />
+                    Connect existing WhatsApp Business app
+                  </button>
+                )}
+              </div>
             )}
 
             <div className="text-[11px] text-slate-450 space-y-1.5 bg-slate-50/50 border border-slate-100/50 rounded-xl p-3.5">
@@ -569,6 +585,7 @@ export default function SettingsPage() {
                   <p className="flex items-center gap-1.5">✓ User creates or selects their business inside the Meta popup</p>
                   <p className="flex items-center gap-1.5">✓ Adds or selects a WhatsApp number — everything auto-detected</p>
                   <p className="flex items-center gap-1.5">✓ Webhook subscribed & templates imported automatically</p>
+                  <p className="flex items-center gap-1.5 text-green-700">✓ Green button: connect a number already running on the WhatsApp Business app (coexistence)</p>
                 </>
               ) : (
                 <>
