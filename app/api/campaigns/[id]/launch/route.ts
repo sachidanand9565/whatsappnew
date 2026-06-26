@@ -118,9 +118,13 @@ export async function POST(req: NextRequest, { params }: Params) {
 
           // If template has variable mappings, apply them
           if (Object.keys(varMapping).length > 0) {
-            for (const [varIdx, columnName] of Object.entries(varMapping)) {
+            for (const [varIdx, mappedVal] of Object.entries(varMapping)) {
               if (varIdx.startsWith('__')) continue;
-              variables[varIdx] = contactFields[columnName] || columnName || '';
+              if (typeof mappedVal === 'string' && mappedVal.startsWith('manual::')) {
+                variables[varIdx] = mappedVal.slice(8);                 // fixed manual value
+              } else {
+                variables[varIdx] = contactFields[mappedVal] || mappedVal || '';
+              }
             }
           }
 

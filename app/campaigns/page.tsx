@@ -623,10 +623,12 @@ function CampaignWizard({ onClose, onSaved }: { onClose: () => void; onSaved: ()
     try {
       // Build test variables from mapping
       const testVars: Record<string, string> = {};
-      for (const [varIdx, columnName] of Object.entries(varMapping)) {
-        // Use first CSV row data or a sample value
-        if (csvData.length > 0 && csvData[0][columnName]) {
-          testVars[varIdx] = csvData[0][columnName];
+      for (const [varIdx, mapped] of Object.entries(varMapping)) {
+        if (varIdx.startsWith('__')) continue;
+        if (mapped.startsWith('manual::')) {
+          testVars[varIdx] = mapped.slice(8);                 // fixed manual value
+        } else if (csvData.length > 0 && csvData[0][mapped]) {
+          testVars[varIdx] = csvData[0][mapped];              // first CSV row value
         } else {
           testVars[varIdx] = `{{${varIdx}}}`;
         }
@@ -690,7 +692,12 @@ function CampaignWizard({ onClose, onSaved }: { onClose: () => void; onSaved: ()
 
   // CSV mode needs a phone column chosen; all template variables must be mapped
   const phoneOk   = audienceMode !== 'csv' || !!phoneColumn;
-  const varsMapped = templateVars.every((v) => varMapping[v]);
+  const varsMapped = templateVars.every((v) => {
+    const m = varMapping[v];
+    if (!m) return false;
+    if (m.startsWith('manual::')) return m.slice(8).trim().length > 0;
+    return true;
+  });
   const canGoStep2 = campaignName.trim() && selectedTemplate;
   const canGoStep3 = (isApi || audienceCount > 0) && isMediaHeaderFilled && phoneOk && varsMapped;
 
@@ -1244,33 +1251,52 @@ function CampaignWizard({ onClose, onSaved }: { onClose: () => void; onSaved: ()
                     <Sparkles size={14} className="inline mr-1 text-yellow-500" />
                     Map Template Variables
                   </label>
-                  <p className="text-xs text-gray-400 mb-3">Map each template variable to a data column. These values will be personalized for each contact.</p>
+                  <p className="text-xs text-gray-400 mb-3">Map each variable to a data column, or enter a fixed Manual value used for every contact.</p>
                   <div className="space-y-2">
-                    {templateVars.map((varNum) => (
-                      <div key={varNum} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
-                        <span className="bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-lg text-sm font-mono font-bold flex-shrink-0">
-                          {`{{${varNum}}}`}
-                        </span>
-                        <ArrowRight size={14} className="text-gray-400 flex-shrink-0" />
-                        <select
-                          value={varMapping[varNum] || ''}
-                          onChange={(e) => setVarMapping((prev) => ({ ...prev, [varNum]: e.target.value }))}
-                          className="input flex-1 !py-2"
-                        >
-                          <option value="">— Select column —</option>
-                          {audienceMode === 'csv' ? (
-                            csvColumns.map((col) => (
-                              <option key={col} value={col}>{col}</option>
-                            ))
-                          ) : (
-                            <>
-                              <option value="name">Name</option>
-                              <option value="phone">Phone</option>
-                            </>
-                          )}
-                        </select>
+                    {templateVars.map((varNum) => {
+                      const mapped   = varMapping[varNum] || '';
+                      const isManual = mapped.startsWith('manual::');
+                      const manualVal = isManual ? mapped.slice(8) : '';
+                      return (
+                      <div key={varNum} className="bg-gray-50 rounded-xl p-3 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <span className="bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-lg text-sm font-mono font-bold flex-shrink-0">
+                            {`{{${varNum}}}`}
+                          </span>
+                          <ArrowRight size={14} className="text-gray-400 flex-shrink-0" />
+                          <select
+                            value={isManual ? '__manual__' : mapped}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setVarMapping((prev) => ({ ...prev, [varNum]: v === '__manual__' ? 'manual::' : v }));
+                            }}
+                            className="input flex-1 !py-2"
+                          >
+                            <option value="">— Select column —</option>
+                            <option value="__manual__">✎ Manual value</option>
+                            {audienceMode === 'csv' ? (
+                              csvColumns.map((col) => (
+                                <option key={col} value={col}>{col}</option>
+                              ))
+                            ) : (
+                              <>
+                                <option value="name">Name</option>
+                                <option value="phone">Phone</option>
+                              </>
+                            )}
+                          </select>
+                        </div>
+                        {isManual && (
+                          <input
+                            value={manualVal}
+                            onChange={(e) => setVarMapping((prev) => ({ ...prev, [varNum]: 'manual::' + e.target.value }))}
+                            placeholder={`Fixed value for {{${varNum}}} (same for all contacts)`}
+                            className="input w-full !py-2 text-sm"
+                          />
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
