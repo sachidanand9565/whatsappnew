@@ -709,6 +709,10 @@ function TemplateModal({
     e.preventDefault();
     if (!form.name)      { toast.error('Template name required'); return; }
     if (!form.body_text) { toast.error('Body text required'); return; }
+    if (form.body_text.length > 1024) {
+      toast.error(`Body is ${form.body_text.length} characters — Meta allows max 1024. Shorten it by ${form.body_text.length - 1024}.`, { duration: 6000 });
+      return;
+    }
     if (form.header_type === 'TEXT' && !form.header_content) {
       toast.error('Header text required'); return;
     }
@@ -856,7 +860,7 @@ function TemplateModal({
                 onChange={(e) => setForm({ ...form, body_text: e.target.value })}
                 className="input resize-y min-h-[220px]" rows={12}
                 placeholder={'Hello {{1}},\n\nYour order *{{2}}* is confirmed! 🎉\n\nDelivery: {{3}}'} required />
-              <p className="text-xs text-gray-400">*bold* _italic_ ~strikethrough~ · {form.body_text.length}/1024</p>
+              <p className="text-xs text-gray-400">*bold* _italic_ ~strikethrough~ · <span className={form.body_text.length > 1024 ? 'text-red-500 font-bold' : ''}>{form.body_text.length}/1024</span></p>
             </div>
 
             {/* Variable samples */}

@@ -42,9 +42,9 @@ export default function ButtonEdge({
           <button
             onClick={() => setEdges(es => es.filter(e => e.id !== id))}
             title="Disconnect"
-            className="w-4 h-4 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-400 hover:bg-red-50 hover:text-red-500 hover:border-red-300 shadow-sm transition-colors"
+            className="w-5 h-5 flex items-center justify-center rounded-full bg-[#0f172a] border border-white/15 text-slate-400 hover:bg-red-500/20 hover:text-red-400 hover:border-red-400/40 shadow-md transition-colors"
           >
-            <X size={9} />
+            <X size={10} />
           </button>
         </div>
       </EdgeLabelRenderer>

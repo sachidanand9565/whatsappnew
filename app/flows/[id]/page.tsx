@@ -2,10 +2,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ReactFlow, {
-  addEdge, Background, Controls, MiniMap,
+  addEdge, Background, BackgroundVariant, Controls, MiniMap,
   useNodesState, useEdgesState,
   Connection, Edge, Node, NodeTypes, ReactFlowInstance,
-  MarkerType, Panel,
+  MarkerType,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { apiFetch } from '@/hooks/useApi';
@@ -121,7 +121,13 @@ export default function FlowBuilderPage() {
         : [defaultStartNode()];
       const savedEdges = Array.isArray(f.edges) ? f.edges : [];
       setNodes(savedNodes);
-      setEdges(savedEdges.map((e: Edge) => ({ ...e, type: e.type || 'button' })));
+      setEdges(savedEdges.map((e: Edge) => ({
+        ...e,
+        type: e.type || 'button',
+        animated: true,
+        markerEnd: { type: MarkerType.ArrowClosed, color: '#38bdf8' },
+        style: { stroke: '#38bdf8', strokeWidth: 2 },
+      })));
 
       // Avoid generating duplicate IDs for new nodes after reload
       savedNodes.forEach(n => {
@@ -146,8 +152,8 @@ export default function FlowBuilderPage() {
       ...conn,
       type: 'button',
       animated: true,
-      markerEnd: { type: MarkerType.ArrowClosed, color: '#25D366' },
-      style: { stroke: '#25D366', strokeWidth: 2 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#38bdf8' },
+      style: { stroke: '#38bdf8', strokeWidth: 2 },
     }, eds));
   }, []);
 
@@ -233,26 +239,26 @@ export default function FlowBuilderPage() {
   }
 
   if (loading) return (
-    <div className="flex items-center justify-center h-screen">
-      <div className="animate-spin w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full" />
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0b1120]">
+      <div className="animate-spin w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full" />
     </div>
   );
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col bg-gray-50">
+    <div className="fixed inset-0 z-[9999] flex flex-col bg-[#0b1120]">
 
-      {/* Top Bar (Responsive 1-row layout with compact styling on mobile, full-featured on desktop) */}
-      <div className="bg-white border-b border-slate-200 shadow-sm z-30 px-3 py-2 flex items-center justify-between h-14 md:h-16 flex-shrink-0">
+      {/* Top Bar */}
+      <div className="bg-[#0f172a] border-b border-white/[0.07] z-30 px-3 py-2 flex items-center justify-between h-14 md:h-16 flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <button onClick={() => router.push('/flows')}
-            className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-500 flex-shrink-0 transition-colors">
+            className="p-1.5 hover:bg-white/5 rounded-xl text-slate-400 flex-shrink-0 transition-colors">
             <ArrowLeft size={18} />
           </button>
           <div className="min-w-0 flex-1">
-            <h1 className="font-extrabold text-slate-900 text-xs sm:text-sm md:text-base truncate leading-tight">
+            <h1 className="font-bold text-slate-100 text-xs sm:text-sm md:text-base truncate leading-tight">
               {flow?.name || 'Flow Builder'}
             </h1>
-            <p className="text-[9px] text-slate-400 font-bold tracking-wide mt-0.5 hidden sm:block">
+            <p className="text-[9px] text-slate-500 font-semibold tracking-wide mt-0.5 hidden sm:block">
               {nodes.length} nodes · {edges.length} connections
             </p>
           </div>
@@ -262,12 +268,12 @@ export default function FlowBuilderPage() {
         <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
           {/* Keywords triggers button */}
           <button onClick={() => setShowSettings(true)}
-            className="flex items-center justify-center gap-1.5 text-xs border border-slate-200 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl hover:bg-slate-50 text-slate-600 font-semibold shadow-sm transition-colors"
+            className="flex items-center justify-center gap-1.5 text-xs border border-white/10 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl hover:bg-white/5 text-slate-300 font-semibold transition-colors"
             title={`Triggers: ${keywords.length}`}
           >
-            <Zap size={13} className="text-yellow-500 fill-yellow-500" />
+            <Zap size={13} className="text-yellow-400 fill-yellow-400" />
             <span className="hidden sm:inline">Triggers</span>
-            <span className="bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[9px] font-bold">
+            <span className="bg-white/10 text-slate-200 px-1 py-0.5 rounded text-[9px] font-bold">
               {keywords.length}
             </span>
           </button>
@@ -276,8 +282,8 @@ export default function FlowBuilderPage() {
           <button onClick={toggleActive}
             className={`flex items-center justify-center gap-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs font-bold border transition-colors ${
               flow?.is_active
-                ? 'bg-green-50 border-green-200 text-green-700'
-                : 'bg-slate-50 border-slate-200 text-slate-500'
+                ? 'bg-green-500/15 border-green-500/30 text-green-300'
+                : 'bg-white/5 border-white/10 text-slate-400'
             }`}
             title={flow?.is_active ? 'Active' : 'Inactive'}
           >
@@ -314,31 +320,31 @@ export default function FlowBuilderPage() {
           />
         )}
         <div className={`
-          fixed md:static top-[56px] bottom-0 md:top-auto md:bottom-auto left-0 z-30 w-56 bg-white border-r border-slate-200/60 flex flex-col overflow-y-auto transition-transform duration-200
+          fixed md:static top-[56px] bottom-0 md:top-auto md:bottom-auto left-0 z-30 w-56 bg-[#0f172a] border-r border-white/[0.07] flex flex-col overflow-y-auto transition-transform duration-200
           ${showPalette ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide px-4 pt-4 pb-2">Add Nodes</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-4 pt-4 pb-2">Add Nodes</p>
           <div className="px-2 pb-4 space-y-3">
             {PALETTE.map(group => (
               <div key={group.group}>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 py-1">{group.group}</p>
+                <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider px-3 py-1">{group.group}</p>
                 <div className="space-y-0.5">
                   {group.items.map(item => (
-                    <button 
-                      key={item.type} 
-                      onClick={() => { 
-                        addNode(item.type); 
-                        if (window.innerWidth < 768) setShowPalette(false); 
+                    <button
+                      key={item.type}
+                      onClick={() => {
+                        addNode(item.type);
+                        if (window.innerWidth < 768) setShowPalette(false);
                       }}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/[0.06] border border-transparent hover:border-white/10 transition-colors text-left group"
                     >
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: item.color + '18' }}>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform"
+                        style={{ backgroundColor: item.color + '22' }}>
                         <item.icon size={15} style={{ color: item.color }} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold text-slate-700">{item.label}</p>
-                        <p className="text-[10px] text-slate-400">{item.desc}</p>
+                        <p className="text-xs font-semibold text-slate-200">{item.label}</p>
+                        <p className="text-[10px] text-slate-500">{item.desc}</p>
                       </div>
                     </button>
                   ))}
@@ -349,7 +355,7 @@ export default function FlowBuilderPage() {
         </div>
 
         {/* Canvas */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative bg-[#0b1120]">
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -366,16 +372,23 @@ export default function FlowBuilderPage() {
             deleteKeyCode="Delete"
             snapToGrid
             snapGrid={[15, 15]}
+            proOptions={{ hideAttribution: true }}
           >
-            <Background color="#e5e7eb" gap={20} />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={1.4} color="#1e2a44" />
             <Controls position="top-left" />
-            <MiniMap nodeColor={n => {
-              if (n.type === 'start')     return '#22c55e';
-              if (n.type === 'message')   return '#3B82F6';
-              if (n.type === 'condition') return '#8B5CF6';
-              if (n.type === 'end')       return '#EF4444';
-              return '#9CA3AF';
-            }} />
+            <MiniMap
+              className="!bg-[#0f172a] !border !border-white/10 !rounded-lg"
+              maskColor="rgba(11,17,32,0.7)"
+              nodeColor={n => {
+                if (n.type === 'start')     return '#22c55e';
+                if (n.type === 'message')   return '#3b82f6';
+                if (n.type === 'condition') return '#a855f7';
+                if (n.type === 'send_media') return '#ec4899';
+                if (n.type === 'list_message') return '#14b8a6';
+                if (n.type === 'end')       return '#ef4444';
+                return '#64748b';
+              }}
+            />
           </ReactFlow>
         </div>
 
@@ -396,7 +409,7 @@ export default function FlowBuilderPage() {
               className="md:hidden fixed inset-0 bg-black/30 z-20 backdrop-blur-sm" 
               onClick={() => setSelected(null)} 
             />
-            <div className="fixed md:static top-[56px] bottom-0 md:top-auto md:bottom-auto right-0 z-30 w-[320px] max-w-[85vw] md:w-72 bg-white border-l border-slate-200 flex flex-col shadow-2xl md:shadow-none overflow-hidden transition-transform duration-200 animate-slide-in-right">
+            <div className="fixed md:static top-[56px] bottom-0 md:top-auto md:bottom-auto right-0 z-30 w-[320px] max-w-[85vw] md:w-72 bg-[#0f172a] border-l border-white/[0.07] flex flex-col shadow-2xl md:shadow-none overflow-hidden transition-transform duration-200 animate-slide-in-right">
               <NodePanel
                 node={nodes.find(n => n.id === selected.id) || selected}
                 onUpdate={(data) => updateNodeData(selected.id, data)}
