@@ -28,9 +28,17 @@ export function getPagination(searchParams: URLSearchParams) {
   return { page, limit, offset };
 }
 
-// ---- Phone normalizer: ensure E.164 without '+' ----
+// ---- Phone normalizer: ensure E.164 (country code, no '+') ----
+// WhatsApp rejects numbers without a country code, so we add the default one
+// (India 91) for plain 10-digit mobiles. Override via DEFAULT_COUNTRY_CODE.
 export function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, '');
+  let p = (phone || '').replace(/\D/g, '');
+  if (!p) return '';
+  p = p.replace(/^0+/, ''); // strip leading zeros (e.g. 0 98xxxxxxx)
+  const cc = process.env.DEFAULT_COUNTRY_CODE || '91';
+  // Plain 10-digit local mobile → prepend country code
+  if (p.length === 10) p = cc + p;
+  return p;
 }
 
 // ---- UTC datetime helpers (MySQL-safe "YYYY-MM-DD HH:mm:ss" in UTC) ----

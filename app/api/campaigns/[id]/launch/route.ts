@@ -5,7 +5,7 @@
 import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { query, execute, insert } from '@/lib/db';
-import { apiSuccess, apiError, utcNow } from '@/lib/utils';
+import { apiSuccess, apiError, utcNow, normalizePhone } from '@/lib/utils';
 import { sendTemplateMessage } from '@/lib/whatsapp';
 import { decryptIdNum } from '@/lib/idCrypto';
 import { getMessageRate, debitWallet, creditWallet, InsufficientBalanceError } from '@/lib/wallet';
@@ -158,11 +158,12 @@ export async function POST(req: NextRequest, { params }: Params) {
             });
           }
 
-          // Send via Meta API
+          // Send via Meta API (normalize the number so it always has a country code)
+          const toPhone = normalizePhone(contact.phone as string);
           const result = await sendTemplateMessage(
             accessToken,
             phoneNumberId,
-            contact.phone as string,
+            toPhone,
             templateName,
             language,
             components,
@@ -207,11 +208,15 @@ export async function POST(req: NextRequest, { params }: Params) {
           if (rate > 0) {
             await creditWallet(payload.workspaceId, rate, `Refund: failed send for ${templateName}`, 'campaign', String(campaignId));
           }
-          // Mark this contact as failed
-          const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+          // Mark this contact as failed — surface the real Meta reason, not just "status code 400"
+          const fb = (err as { response?: { data?: { error?: Record<string, unknown> } } })?.response?.data?.error;
+          const code = fb?.code ? `[${fb.code}] ` : '';
+          const errorMsg = fb
+            ? `${code}${(fb.error_user_msg as string) || (fb.message as string) || 'Meta error'}`
+            : (err instanceof Error ? err.message : 'Unknown error');
           await execute(
             `UPDATE campaign_contacts SET status = 'failed', error = ? WHERE id = ?`,
-            [errorMsg, contact.cc_id]
+            [errorMsg.slice(0, 250), contact.cc_id]
           );
           failedCount++;
           console.error(`[launch] Failed to send to ${contact.phone}:`, err);

@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { apiFetch } from '@/hooks/useApi';
-import { Search, CheckCircle, MapPin, User, FileText, Download, Music, Send, LayoutTemplate, X, Loader2, ArrowLeft } from 'lucide-react';
+import { Search, CheckCircle, MapPin, User, FileText, Download, Music, LayoutTemplate, ArrowLeft } from 'lucide-react';
+import TemplateComposer from '@/app/components/TemplateComposer';
 import toast from 'react-hot-toast';
 import { Contact, Message } from '@/types';
 
@@ -236,31 +237,13 @@ export default function HistoryPage() {
             <div ref={bottomRef} />
           </div>
 
-          {/* Template picker panel */}
-          {showTemplates && (
-            <div className="border-t border-gray-200 bg-white">
-              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
-                <p className="text-sm font-semibold text-gray-700">Select a Template</p>
-                <button onClick={() => setShowTemplates(false)}><X size={16} className="text-gray-400 hover:text-gray-600" /></button>
-              </div>
-              <div className="max-h-52 overflow-y-auto divide-y divide-gray-50">
-                {templates.length === 0
-                  ? <p className="text-center text-xs text-gray-400 py-6">No approved templates</p>
-                  : templates.map((t) => (
-                    <button key={t.id} onClick={() => sendTemplate(t.name, t.language, t.id)}
-                      disabled={sendingTpl === t.id}
-                      className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors disabled:opacity-50">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-gray-800">{t.name}</p>
-                        {sendingTpl === t.id
-                          ? <Loader2 size={14} className="animate-spin text-gray-400" />
-                          : <Send size={13} className="text-gray-300" />}
-                      </div>
-                      <p className="text-xs text-gray-400 mt-0.5 truncate">{t.body_text}</p>
-                    </button>
-                  ))}
-              </div>
-            </div>
+          {/* Template picker panel — shared inbox-style composer (vars + media + buttons) */}
+          {showTemplates && selected && (
+            <TemplateComposer
+              contactId={selected.id}
+              onSent={() => apiFetch(`/api/messages?contactId=${selected.id}&limit=80`).then((r) => setMessages(r.data || []))}
+              onClose={() => setShowTemplates(false)}
+            />
           )}
           <div className="p-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
             <p className="text-xs text-gray-400">24h session expired — send a template to re-engage</p>

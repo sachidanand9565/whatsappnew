@@ -10,6 +10,7 @@ import {
 import toast from 'react-hot-toast';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import MediaLibrary, { type MediaItem as MLItem } from '@/app/components/MediaLibrary';
+import TemplateComposer from '@/app/components/TemplateComposer';
 
 // ── Types ─────────────────────────────────────────────────────
 interface CampaignDetail {
@@ -1076,97 +1077,20 @@ function ChatDrawer({ phone, name, onClose }: { phone: string; name: string; onC
                 {!showTpl ? (
                   /* Send Template button */
                   <div className="flex justify-center px-4 py-3">
-                    <button onClick={() => { setShowTpl(true); loadTemplates(); }}
+                    <button onClick={() => setShowTpl(true)}
                       className="btn-primary flex items-center gap-2 text-sm px-5 py-2">
                       <LayoutTemplate size={15} /> Send Template
                     </button>
                   </div>
-                ) : tplForParams ? (
-                  /* ── Params form ── */
-                  <>
-                    <div className="flex items-center justify-between px-3 py-2 border-b bg-gray-50">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setTplForParams(null)} className="text-gray-400 hover:text-gray-600">
-                          <ArrowLeft size={14} />
-                        </button>
-                        <p className="text-xs font-semibold text-gray-700">Parameters</p>
-                      </div>
-                      <button onClick={() => { setShowTpl(false); setTplForParams(null); }}>
-                        <X size={14} className="text-gray-400 hover:text-gray-600" />
-                      </button>
-                    </div>
-                    <div className="overflow-y-auto max-h-64 p-3 space-y-2.5">
-                      {tplParamVals.map((val, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <span className="text-xs font-mono text-gray-400 w-10 shrink-0 text-right">{`{{${i+1}}}`}</span>
-                          <input value={val}
-                            onChange={e => { const n = [...tplParamVals]; n[i] = e.target.value; setTplParamVals(n); }}
-                            placeholder="value"
-                            className="input text-sm py-1.5 flex-1" />
-                        </div>
-                      ))}
-                      {/* Preview */}
-                      <div className="border-t pt-2.5 mt-1">
-                        <p className="text-[11px] font-semibold text-gray-400 flex items-center gap-1 mb-1.5">
-                          <Eye size={11} /> Preview
-                        </p>
-                        <div className="bg-[#dcf8c6] rounded-xl rounded-br-sm px-3 py-2 text-sm text-gray-800 leading-snug whitespace-pre-wrap shadow-sm">
-                          {parseWaText(tplParamVals.reduce(
-                            (t, v, i) => t.replace(new RegExp(`\\{\\{${i+1}\\}\\}`, 'g'), v || `{{${i+1}}}`),
-                            tplForParams.body_text
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="px-3 py-2 border-t flex gap-2">
-                      <button onClick={() => setTplForParams(null)} className="btn-secondary flex-1 text-sm">Back</button>
-                      <button onClick={() => sendTemplate(tplForParams, tplParamVals)}
-                        disabled={sendingTpl === tplForParams.id}
-                        className="btn-primary flex-1 text-sm flex items-center justify-center gap-2 disabled:opacity-50">
-                        {sendingTpl === tplForParams.id
-                          ? <RefreshCw size={13} className="animate-spin" />
-                          : <Send size={13} />} Send
-                      </button>
-                    </div>
-                  </>
                 ) : (
-                  /* ── Template list ── */
-                  <div className="max-h-56 overflow-y-auto">
-                    <div className="flex items-center justify-between px-3 py-2 border-b bg-gray-50">
-                      <p className="text-xs font-semibold text-gray-600">Select Template</p>
-                      <button onClick={() => setShowTpl(false)}><X size={14} className="text-gray-400 hover:text-gray-600" /></button>
-                    </div>
-                    {loadingTpl ? (
-                      <div className="flex justify-center py-4">
-                        <RefreshCw size={16} className="animate-spin text-gray-400" />
-                      </div>
-                    ) : templates.length === 0 ? (
-                      <p className="text-center text-gray-400 text-xs py-4">No approved templates</p>
-                    ) : (
-                      templates.map((tpl) => {
-                        const vc = (tpl.body_text?.match(/\{\{(\d+)\}\}/g) || []).length;
-                        return (
-                          <button key={tpl.id}
-                            onClick={() => {
-                              if (vc > 0) { setTplForParams(tpl); setTplParamVals(Array(Math.max(...(tpl.body_text?.match(/\{\{(\d+)\}\}/g) || ['{{1}}']).map(m => parseInt(m.replace(/\{\{|\}\}/g, ''))))).fill('')); }
-                              else sendTemplate(tpl);
-                            }}
-                            disabled={sendingTpl === tpl.id}
-                            className="w-full text-left px-3 py-2.5 border-b border-gray-50 hover:bg-gray-50 disabled:opacity-50 transition-colors">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-sm font-medium text-gray-800 truncate">{tpl.name}</p>
-                              {sendingTpl === tpl.id
-                                ? <RefreshCw size={12} className="animate-spin text-gray-400" />
-                                : vc > 0
-                                  ? <span className="text-[10px] text-blue-400 font-medium shrink-0">{vc} vars</span>
-                                  : <span className="text-[10px] text-gray-400 shrink-0 uppercase">{tpl.language}</span>}
-                            </div>
-                            <p className="text-xs text-gray-400 truncate mt-0.5">{tpl.body_text}</p>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
+                  /* Shared inbox-style composer (vars + media + buttons) */
+                  contact && (
+                    <TemplateComposer
+                      contactId={contact.id}
+                      onSent={() => loadMsgs(contact.id)}
+                      onClose={() => setShowTpl(false)}
+                    />
+                  )
                 )}
               </div>
             )
