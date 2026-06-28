@@ -95,7 +95,8 @@ function MediaBubble({ data, msgType }: { data: MediaContent; msgType: string })
         <img
           src={src}
           alt={data.caption || (isSticker ? 'Sticker' : 'Image')}
-          className={isSticker ? "max-w-[120px] max-h-[120px] object-contain my-1" : "rounded-xl max-w-full max-h-64 object-cover"}
+          onClick={() => window.dispatchEvent(new CustomEvent('wa-lightbox', { detail: { src, type: 'image', filename: data.filename } }))}
+          className={isSticker ? "max-w-[120px] max-h-[120px] object-contain my-1" : "rounded-xl max-w-full max-h-64 object-cover cursor-zoom-in hover:opacity-95 transition-opacity"}
           loading="lazy"
         />
       )}
@@ -103,7 +104,8 @@ function MediaBubble({ data, msgType }: { data: MediaContent; msgType: string })
         <video
           src={src}
           controls
-          className="rounded-xl max-w-full max-h-64"
+          onClick={() => window.dispatchEvent(new CustomEvent('wa-lightbox', { detail: { src, type: 'video', filename: data.filename } }))}
+          className="rounded-xl max-w-full max-h-64 cursor-zoom-in"
         />
       )}
       {isAudio && (
@@ -564,8 +566,16 @@ export default function InboxPage() {
   const [tplHeaderFileName, setTplHeaderFileName] = useState('');
   const [uploadingTplHeader, setUploadingTplHeader] = useState(false);
   const [showEmoji, setShowEmoji]       = useState(false);
+  const [lightbox, setLightbox]         = useState<{ src: string; type: string; filename?: string } | null>(null);
   const inputRef                        = useRef<HTMLTextAreaElement>(null);
   const emojiRef                        = useRef<HTMLDivElement>(null);
+
+  // Open the media lightbox when an image/video bubble is clicked
+  useEffect(() => {
+    const h = (e: Event) => setLightbox((e as CustomEvent).detail);
+    window.addEventListener('wa-lightbox', h);
+    return () => window.removeEventListener('wa-lightbox', h);
+  }, []);
   const [showTransfer, setShowTransfer]     = useState(false);
   const [transferAgents, setTransferAgents] = useState<{ id: number; name: string; workspace_role: string }[]>([]);
   const [loadingAgents, setLoadingAgents]   = useState(false);
@@ -2061,6 +2071,32 @@ export default function InboxPage() {
           onSelect={handleMediaLibSelect}
           onClose={() => setShowMediaLib(false)}
         />
+      )}
+
+      {/* Media lightbox — enlarge + download */}
+      {lightbox && (
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <a
+            href={lightbox.src}
+            download={lightbox.filename || 'download'}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="absolute top-4 right-16 flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <Download size={16} /> Download
+          </a>
+          <button onClick={() => setLightbox(null)} className="absolute top-4 right-4 text-white/80 hover:text-white">
+            <X size={28} />
+          </button>
+          <div onClick={(e) => e.stopPropagation()} className="max-w-[92vw] max-h-[86vh]">
+            {lightbox.type === 'video' ? (
+              <video src={lightbox.src} controls autoPlay className="max-w-[92vw] max-h-[86vh] rounded-lg" />
+            ) : (
+              <img src={lightbox.src} alt="" className="max-w-[92vw] max-h-[86vh] rounded-lg object-contain" />
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

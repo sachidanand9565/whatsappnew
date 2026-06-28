@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { apiFetch } from '@/hooks/useApi';
-import { Search, CheckCircle, MapPin, User, FileText, Download, Music, LayoutTemplate, ArrowLeft } from 'lucide-react';
+import { Search, CheckCircle, MapPin, User, FileText, Download, Music, LayoutTemplate, ArrowLeft, X } from 'lucide-react';
 import TemplateComposer from '@/app/components/TemplateComposer';
 import TemplateBubble from '@/app/components/TemplateBubble';
 import toast from 'react-hot-toast';
@@ -21,15 +21,24 @@ function parseContactsContent(c: string) {
   try { const p = JSON.parse(c); if (p.__type === 'contacts') return p; } catch { /**/ } return null;
 }
 
-function renderMessageContent(m: Message) {
+function renderMessageContent(m: Message, onMedia?: (mm: { src: string; type: string; filename?: string }) => void) {
   const media    = parseMediaContent(m.content);
   const location = parseLocationContent(m.content);
   const contacts = parseContactsContent(m.content);
 
   if (media) {
     const src = `/api/media/${media.media_id}?workspaceId=${media.workspace_id}`;
-    if (m.type === 'image' || m.type === 'sticker') return <img src={src} alt="Image" className="rounded-xl max-w-full max-h-64 object-cover" loading="lazy" />;
-    if (m.type === 'video') return <video src={src} controls className="rounded-xl max-w-full max-h-64" />;
+    if (m.type === 'image' || m.type === 'sticker') return (
+      <img src={src} alt="Image"
+        onClick={() => onMedia?.({ src, type: 'image', filename: media.filename })}
+        className="rounded-xl max-w-full max-h-64 object-cover cursor-zoom-in hover:opacity-95 transition-opacity"
+        loading="lazy" />
+    );
+    if (m.type === 'video') return (
+      <video src={src} controls
+        onClick={() => onMedia?.({ src, type: 'video', filename: media.filename })}
+        className="rounded-xl max-w-full max-h-64 cursor-zoom-in" />
+    );
     if (m.type === 'audio') return <div className="flex items-center gap-2"><Music size={16} className="text-gray-500" /><audio src={src} controls className="h-8 w-48" /></div>;
     if (m.type === 'document') return (
       <a href={src} download={media.filename || 'document'} target="_blank" rel="noreferrer"
@@ -118,6 +127,7 @@ export default function HistoryPage() {
   const [templates, setTemplates]   = useState<{ id: number; name: string; language: string; body_text: string; status: string }[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
   const [sendingTpl, setSendingTpl] = useState<number | null>(null);
+  const [lightbox, setLightbox]     = useState<{ src: string; type: string; filename?: string } | null>(null);
   const bottomRef                   = useRef<HTMLDivElement>(null);
 
   const loadContacts = useCallback(() => {
@@ -257,7 +267,7 @@ export default function HistoryPage() {
                     <div className={`max-w-xs lg:max-w-sm rounded-2xl text-sm shadow-sm overflow-hidden
                       ${m.direction === 'outbound' ? 'bg-[#dcf8c6] text-gray-800 rounded-br-sm' : 'bg-white text-gray-800 rounded-bl-sm'}`}>
                       <div className="px-3 py-2">
-                        {renderMessageContent(m)}
+                        {renderMessageContent(m, setLightbox)}
                         <p className={`text-xs mt-1 ${m.direction === 'outbound' ? 'text-right text-gray-400' : 'text-gray-300'}`}>{timeStr}</p>
                       </div>
                     </div>
@@ -292,6 +302,32 @@ export default function HistoryPage() {
             <CheckCircle size={48} className="mx-auto mb-3 text-gray-300" />
             <p className="font-medium text-gray-500">Select a resolved chat</p>
             <p className="text-sm text-gray-400 mt-1">View past conversation history</p>
+          </div>
+        </div>
+      )}
+
+      {/* Media lightbox — enlarge + download */}
+      {lightbox && (
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <a
+            href={lightbox.src}
+            download={lightbox.filename || 'download'}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="absolute top-4 right-16 flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <Download size={16} /> Download
+          </a>
+          <button onClick={() => setLightbox(null)} className="absolute top-4 right-4 text-white/80 hover:text-white">
+            <X size={28} />
+          </button>
+          <div onClick={(e) => e.stopPropagation()} className="max-w-[92vw] max-h-[86vh]">
+            {lightbox.type === 'video' ? (
+              <video src={lightbox.src} controls autoPlay className="max-w-[92vw] max-h-[86vh] rounded-lg" />
+            ) : (
+              <img src={lightbox.src} alt="" className="max-w-[92vw] max-h-[86vh] rounded-lg object-contain" />
+            )}
           </div>
         </div>
       )}
