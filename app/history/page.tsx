@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { apiFetch } from '@/hooks/useApi';
 import { Search, CheckCircle, MapPin, User, FileText, Download, Music, LayoutTemplate, ArrowLeft } from 'lucide-react';
 import TemplateComposer from '@/app/components/TemplateComposer';
+import TemplateBubble from '@/app/components/TemplateBubble';
 import toast from 'react-hot-toast';
 import { Contact, Message } from '@/types';
 
@@ -71,6 +72,40 @@ function renderMessageContent(m: Message) {
       </div>
     );
   }
+  // Interactive buttons / list (flow-sent) — current (__type) + legacy (_type) formats
+  try {
+    const p = JSON.parse(m.content);
+    const t = p.__type || p._type;
+    if (t === 'interactive') {
+      return (
+        <div className="space-y-1.5">
+          <p className="whitespace-pre-wrap break-words leading-relaxed">{p.body}</p>
+          {(p.buttons || []).map((b: { text?: string; title?: string }, i: number) => (
+            <div key={i} className="bg-white text-green-600 font-semibold text-xs py-1.5 px-3 rounded-lg text-center border border-gray-100">{b.text || b.title}</div>
+          ))}
+        </div>
+      );
+    }
+    if (t === 'interactive_list' || t === 'interactivelist') {
+      return (
+        <div className="space-y-1.5">
+          <p className="whitespace-pre-wrap break-words leading-relaxed">{p.body}</p>
+          <div className="bg-white text-green-600 font-semibold text-xs py-1.5 px-3 rounded-lg text-center border border-gray-100">≡ {p.button || 'Menu'}</div>
+          {(p.sections || []).map((s: { title?: string; rows?: { title?: string; description?: string }[] }, si: number) => (
+            <div key={si} className="mt-1">
+              {s.title && <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">{s.title}</p>}
+              {(s.rows || []).map((r, ri: number) => (
+                <div key={ri} className="text-xs text-gray-700 py-0.5 border-b border-gray-100 last:border-0">
+                  {r.title}{r.description ? <span className="text-gray-400"> — {r.description}</span> : null}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      );
+    }
+  } catch { /* plain text */ }
+
   return <p className="break-words whitespace-pre-wrap leading-relaxed">{m.content}</p>;
 }
 
@@ -159,7 +194,7 @@ export default function HistoryPage() {
                     <p className="text-sm truncate font-medium text-gray-700">{c.name || c.phone}</p>
                     {c.last_message_at && (
                       <span className="text-xs text-gray-400 flex-shrink-0">
-                        {new Date(c.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(c.last_message_at.includes('Z') || c.last_message_at.includes('+') ? c.last_message_at : c.last_message_at.replace(' ', 'T') + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                   </div>
@@ -198,7 +233,8 @@ export default function HistoryPage() {
             style={{ backgroundImage: 'radial-gradient(circle, #d4d4d4 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
             {messages.map((m) => {
               const tpl     = parseTemplateContent(m.content);
-              const timeStr = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const _ts = m.created_at;
+              const timeStr = new Date(_ts.includes('Z') || _ts.includes('+') ? _ts : _ts.replace(' ', 'T') + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
               // System message — centered badge (intervene/resolve/reopen events)
               const isSystemMsg = m.type === 'system' ||
@@ -216,12 +252,7 @@ export default function HistoryPage() {
               return (
                 <div key={m.id} className={`flex ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
                   {tpl ? (
-                    <div className="w-72 rounded-2xl rounded-br-sm overflow-hidden shadow-sm border border-green-100">
-                      <div className="bg-[#dcf8c6] px-4 py-2.5">
-                        <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">{tpl.body}</p>
-                        <p className="text-xs text-gray-400 text-right mt-1">{timeStr}</p>
-                      </div>
-                    </div>
+                    <TemplateBubble data={tpl} status={m.status || ''} time={timeStr} />
                   ) : (
                     <div className={`max-w-xs lg:max-w-sm rounded-2xl text-sm shadow-sm overflow-hidden
                       ${m.direction === 'outbound' ? 'bg-[#dcf8c6] text-gray-800 rounded-br-sm' : 'bg-white text-gray-800 rounded-bl-sm'}`}>

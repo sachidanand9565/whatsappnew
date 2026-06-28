@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import MediaLibrary, { type MediaItem as MLItem } from '@/app/components/MediaLibrary';
 import TemplateComposer from '@/app/components/TemplateComposer';
+import TemplateBubble, { parseTemplateContent } from '@/app/components/TemplateBubble';
 
 // ── Types ─────────────────────────────────────────────────────
 interface CampaignDetail {
@@ -406,7 +407,7 @@ export default function CampaignDetailPage() {
             <div className="border-t px-4 py-3">
               <p className="text-xs text-gray-400 mb-1">Created At</p>
               <p className="text-sm font-medium text-gray-800">
-                {campaign.created_at ? new Date(campaign.created_at).toLocaleString() : '—'}
+                {fmtUtcDateTime(campaign.created_at)}
               </p>
             </div>
           </div>
@@ -656,7 +657,7 @@ export default function CampaignDetailPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-gray-400 text-xs">
-                        {c.sent_at ? new Date(c.sent_at).toLocaleString() : '—'}
+                        {fmtUtcDateTime(c.sent_at)}
                       </td>
                       <td className="px-4 py-3 text-red-400 text-xs max-w-xs truncate">
                         {c.error || '—'}
@@ -724,6 +725,12 @@ interface DrawerContact {
   assigned_agent_name?: string;
 }
 
+// Parse a DB UTC timestamp ("YYYY-MM-DD HH:MM:SS") and show it in local time
+function fmtUtcDateTime(ts: string | null): string {
+  if (!ts) return '—';
+  try { return new Date(ts.includes('Z') || ts.includes('+') ? ts : ts.replace(' ', 'T') + 'Z').toLocaleString(); }
+  catch { return ts; }
+}
 function fmtMsgTime(ts: string): string {
   try {
     const d = new Date(ts.includes('Z') || ts.includes('+') ? ts : ts.replace(' ', 'T') + 'Z');
@@ -752,6 +759,38 @@ function renderMsgNode(msg: DrawerMsg): React.ReactNode {
     else if (p.__type === 'media') {
       const label = p.caption ? `📎 ${p.caption}` : `📎 ${msg.type}`;
       return <span className="italic text-gray-500">{label}</span>;
+    }
+    else {
+      // Interactive buttons / list — support current (__type) and legacy (_type) formats
+      const t = p.__type || p._type;
+      if (t === 'interactive') {
+        return (
+          <div className="space-y-1.5">
+            <p className="whitespace-pre-wrap break-words">{parseWaText(p.body || '')}</p>
+            {(p.buttons || []).map((b: { text?: string; title?: string }, i: number) => (
+              <div key={i} className="bg-white text-emerald-600 font-semibold text-xs py-1.5 px-3 rounded-lg text-center border border-slate-100">{b.text || b.title}</div>
+            ))}
+          </div>
+        );
+      }
+      if (t === 'interactive_list' || t === 'interactivelist') {
+        return (
+          <div className="space-y-1.5">
+            <p className="whitespace-pre-wrap break-words">{parseWaText(p.body || '')}</p>
+            <div className="bg-white text-emerald-600 font-semibold text-xs py-1.5 px-3 rounded-lg text-center border border-slate-100">≡ {p.button || 'Menu'}</div>
+            {(p.sections || []).map((s: { title?: string; rows?: { title?: string; description?: string }[] }, si: number) => (
+              <div key={si} className="mt-1">
+                {s.title && <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">{s.title}</p>}
+                {(s.rows || []).map((r, ri: number) => (
+                  <div key={ri} className="text-xs text-gray-700 py-0.5 border-b border-gray-100 last:border-0">
+                    {r.title}{r.description ? <span className="text-gray-400"> — {r.description}</span> : null}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        );
+      }
     }
   } catch { /* plain text */ }
   return parseWaText(text);
@@ -986,6 +1025,31 @@ function ChatDrawer({ phone, name, onClose }: { phone: string; name: string; onC
             ) : (
               messages.map((msg) => {
                 const isOut = msg.direction === 'outbound';
+
+                // System events (Intervened / Closed / Reopened) — centered badge
+                const isSystemMsg = msg.type === 'system' ||
+                  msg.content?.startsWith('Intervened by ') ||
+                  msg.content?.startsWith('Closed by ') ||
+                  msg.content?.startsWith('Reopened by ');
+                if (isSystemMsg) {
+                  return (
+                    <div key={msg.id} className="flex items-center justify-center my-1">
+                      <span className="bg-gray-200/80 text-gray-500 text-xs px-4 py-1.5 rounded-full shadow-sm">
+                        {msg.content}
+                      </span>
+                    </div>
+                  );
+                }
+
+                const tpl = parseTemplateContent(msg.content);
+                // Full template bubble (media header + body + buttons), like the inbox
+                if (tpl) {
+                  return (
+                    <div key={msg.id} className="flex justify-end">
+                      <TemplateBubble data={tpl} status={msg.status || ''} time={fmtMsgTime(msg.created_at)} />
+                    </div>
+                  );
+                }
                 return (
                   <div key={msg.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[78%] rounded-xl px-3 py-2 text-sm shadow-sm
