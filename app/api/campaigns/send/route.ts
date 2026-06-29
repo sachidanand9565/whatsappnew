@@ -164,6 +164,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // AUTHENTICATION (OTP) templates: copy-code button needs the code too
+    if ((campaign.category as string) === 'AUTHENTICATION' && variables['1']) {
+      components.push({ type: 'button', sub_type: 'url', index: 0, parameters: [{ type: 'text', text: String(variables['1']) }] });
+    }
+
     // ── Send via Meta API ─────────────────────────────────────
     let result: Record<string, unknown>;
     try {

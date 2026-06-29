@@ -57,7 +57,7 @@ export async function POST(
     // ── Load campaign + template ─────────────────────────────
     const rows = await query<RowDataPacket[]>(
       `SELECT c.*, t.name as template_name, t.language,
-              t.body_text, t.header_type, t.header_content, t.footer_text, t.buttons,
+              t.body_text, t.header_type, t.header_content, t.footer_text, t.buttons, t.category,
               w.access_token, w.phone_number_id
        FROM campaigns c
        JOIN templates t  ON t.id = c.template_id
@@ -156,6 +156,11 @@ export async function POST(
         type: 'body',
         parameters: sortedKeys.map((k) => ({ type: 'text', text: variables[k] })),
       });
+    }
+
+    // AUTHENTICATION (OTP) templates: copy-code button needs the code too
+    if ((campaign.category as string) === 'AUTHENTICATION' && variables['1']) {
+      components.push({ type: 'button', sub_type: 'url', index: 0, parameters: [{ type: 'text', text: String(variables['1']) }] });
     }
 
     // ── Send via Meta API ────────────────────────────────────

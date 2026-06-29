@@ -26,7 +26,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     // Load campaign + template + workspace creds
     const rows = await query<RowDataPacket[]>(
-      `SELECT c.*, t.name as template_name, t.language, t.body_text, t.header_type,
+      `SELECT c.*, t.name as template_name, t.language, t.body_text, t.header_type, t.category,
               w.access_token, w.phone_number_id
        FROM campaigns c
        JOIN templates t ON t.id = c.template_id
@@ -81,6 +81,14 @@ export async function POST(req: NextRequest, { params }: Params) {
           type: 'body',
           parameters: filteredVars.map((k) => ({ type: 'text', text: variables[k] })),
         });
+      }
+    }
+
+    // AUTHENTICATION (OTP) templates: copy-code button needs the code too
+    if ((campaign.category as string) === 'AUTHENTICATION') {
+      const code = variables?.['1'] || '';
+      if (code) {
+        components.push({ type: 'button', sub_type: 'url', index: 0, parameters: [{ type: 'text', text: String(code) }] });
       }
     }
 

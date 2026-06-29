@@ -72,6 +72,17 @@ export async function POST(req: NextRequest) {
         }];
       }
 
+      // AUTHENTICATION (OTP) templates also need the code in the copy-code button,
+      // otherwise Meta rejects: "Button at index 0 requires a parameter".
+      if (category === 'AUTHENTICATION') {
+        const bodyComp = resolvedComponents.find((c) => (c as { type?: string }).type === 'body') as { parameters?: { text?: string }[] } | undefined;
+        const code = bodyComp?.parameters?.[0]?.text || (Array.isArray(templateParams) ? templateParams[0] : '') || '';
+        const hasButton = resolvedComponents.some((c) => (c as { type?: string }).type === 'button');
+        if (code && !hasButton) {
+          resolvedComponents.push({ type: 'button', sub_type: 'url', index: 0, parameters: [{ type: 'text', text: String(code) }] });
+        }
+      }
+
       result = await sendTemplateMessage(access_token as string, phone_number_id as string, phone, templateName, language || 'en', resolvedComponents);
 
       // Message sent successfully — deduct wallet

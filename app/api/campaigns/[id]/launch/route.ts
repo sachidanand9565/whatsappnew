@@ -158,6 +158,14 @@ export async function POST(req: NextRequest, { params }: Params) {
             });
           }
 
+          // AUTHENTICATION (OTP) templates: the copy-code button needs the code too
+          if (category === 'AUTHENTICATION') {
+            const code = variables['1'] || '';
+            if (code) {
+              components.push({ type: 'button', sub_type: 'url', index: 0, parameters: [{ type: 'text', text: String(code) }] });
+            }
+          }
+
           // Send via Meta API (normalize the number so it always has a country code)
           const toPhone = normalizePhone(contact.phone as string);
           const result = await sendTemplateMessage(
