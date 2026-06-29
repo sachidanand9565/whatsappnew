@@ -4,11 +4,11 @@ import HomeClient from './HomeClient';
 export const metadata: Metadata = {
   title: 'SK WEBTECH — WhatsApp Business Platform | Bulk Campaigns & CRM',
   description: 'SK WEBTECH ke saath apna WhatsApp Business grow karo. Bulk campaigns bhejo, leads manage karo, chatbot setup karo aur analytics dekho — sab ek platform pe. Free mein start karo.',
-  alternates: { canonical: 'https://skwebteh.com' },
+  alternates: { canonical: 'https://wa.skwebtech.in' },
   openGraph: {
     title: 'SK WEBTECH — WhatsApp Business Platform',
     description: 'Bulk campaigns, CRM, chatbot aur analytics — India ka #1 WhatsApp SaaS Platform. Free mein start karo.',
-    url: 'https://skwebteh.com',
+    url: 'https://wa.skwebtech.in',
     images: [{ url: '/logo.png', width: 1200, height: 630, alt: 'SK WEBTECH WhatsApp Platform' }],
   },
 };
@@ -18,10 +18,10 @@ const jsonLd = {
   '@graph': [
     {
       '@type': 'Organization',
-      '@id': 'https://skwebteh.com/#organization',
+      '@id': 'https://wa.skwebtech.in/#organization',
       name: 'SK WEBTECH',
-      url: 'https://skwebteh.com',
-      logo: { '@type': 'ImageObject', url: 'https://skwebteh.com/logo.png' },
+      url: 'https://wa.skwebtech.in',
+      logo: { '@type': 'ImageObject', url: 'https://wa.skwebtech.in/logo.png' },
       contactPoint: {
         '@type': 'ContactPoint',
         telephone: '+91-6386103750',
@@ -33,10 +33,10 @@ const jsonLd = {
     },
     {
       '@type': 'WebSite',
-      '@id': 'https://skwebteh.com/#website',
-      url: 'https://skwebteh.com',
+      '@id': 'https://wa.skwebtech.in/#website',
+      url: 'https://wa.skwebtech.in',
       name: 'SK WEBTECH',
-      publisher: { '@id': 'https://skwebteh.com/#organization' },
+      publisher: { '@id': 'https://wa.skwebtech.in/#organization' },
     },
     {
       '@type': 'SoftwareApplication',
@@ -52,7 +52,7 @@ const jsonLd = {
         'Multi-agent Inbox',
         'Template Management',
       ],
-      publisher: { '@id': 'https://skwebteh.com/#organization' },
+      publisher: { '@id': 'https://wa.skwebtech.in/#organization' },
     },
     {
       '@type': 'FAQPage',

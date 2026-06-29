@@ -106,7 +106,7 @@ export default function HomeClient() {
           id: "b3",
           sender: "bot",
           type: "text",
-          content: "Excellent! Here is your direct discount link: \n🔗 skwebteh.com/shop?code=WEEKEND30\n\nYour cart is ready for checkout. Grab yours before stocks run out! 🛍️",
+          content: "Excellent! Here is your direct discount link: \n🔗 skwebtech.in/shop?code=WEEKEND30\n\nYour cart is ready for checkout. Grab yours before stocks run out! 🛍️",
           timestamp: "10:03 AM",
         },
       },
@@ -206,7 +206,7 @@ export default function HomeClient() {
           id: "r3",
           sender: "bot",
           type: "text",
-          content: "Awesome! Your discount coupon CART10 is auto-applied.\n\n🔗 Click here to pay: skwebteh.com/pay/c1082\n\nEstimated delivery: 2 days.",
+          content: "Awesome! Your discount coupon CART10 is auto-applied.\n\n🔗 Click here to pay: skwebtech.in/pay/c1082\n\nEstimated delivery: 2 days.",
           timestamp: "4:31 PM",
         },
       },
@@ -790,7 +790,7 @@ export default function HomeClient() {
               <div className="w-3.5 h-3.5 rounded-full bg-amber-500/80" />
               <div className="w-3.5 h-3.5 rounded-full bg-green-500/80" />
               <div className="h-6 bg-slate-800 rounded-md text-[10px] text-slate-500 flex items-center px-4 ml-3 sm:ml-6 w-full max-w-[180px] sm:max-w-xs md:max-w-md font-semibold select-none border border-slate-700/50">
-                https://dashboard.skwebteh.com/home
+                https://dashboard.skwebtech.in/home
               </div>
             </div>
 

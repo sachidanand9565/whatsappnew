@@ -6,7 +6,7 @@ import { Toaster } from 'react-hot-toast';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://skwebteh.com'),
+  metadataBase: new URL('https://wa.skwebtech.in'),
   title: {
     default: 'SK WEBTECH — WhatsApp Business Platform',
     template: '%s | SK WEBTECH',
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     'WhatsApp Lead Management',
     'WhatsApp Automation',
   ],
-  authors: [{ name: 'SK WEBTECH', url: 'https://skwebteh.com' }],
+  authors: [{ name: 'SK WEBTECH', url: 'https://wa.skwebtech.in' }],
   creator: 'SK WEBTECH',
   publisher: 'SK WEBTECH',
   robots: {
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_IN',
-    url: 'https://skwebteh.com',
+    url: 'https://wa.skwebtech.in',
     siteName: 'SK WEBTECH',
     title: 'SK WEBTECH — WhatsApp Business Platform',
     description: 'Bulk campaigns bhejo, leads manage karo, chatbot automate karo. India ka #1 WhatsApp Business SaaS Platform.',
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
     title: 'SK WEBTECH — WhatsApp Business Platform',
     description: 'Bulk campaigns, chatbot, CRM aur analytics — sab ek jagah. India ka #1 WhatsApp SaaS Platform.',
     images: ['/logo.png'],
-    creator: '@skwebteh',
+    creator: '@skwebtech',
   },
 };
 
