@@ -779,58 +779,14 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Manual credentials form */}
-          <form onSubmit={save} className="card space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 flex-wrap gap-2">
-              <h2 className="font-bold text-slate-900 text-sm sm:text-base">WhatsApp Credentials</h2>
-              {isConfigured && (
-                <button type="button" onClick={testConnection} disabled={testing}
-                  className="text-xs font-bold text-green-600 hover:text-green-700 bg-green-50/60 hover:bg-green-100 px-3 py-1.5 rounded-xl border border-green-200/40 transition-colors disabled:opacity-50">
-                  {testing ? 'Testing...' : '🔌 Test Connection'}
-                </button>
-              )}
-            </div>
-
-            <div>
-              <label className="form-label">Business Name</label>
-              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="input" placeholder="Acme Corp" />
-            </div>
-            <div>
-              <label className="form-label">Phone Number ID *</label>
-              <input value={form.phone_number_id} onChange={(e) => setForm({ ...form, phone_number_id: e.target.value })}
-                className="input font-mono" placeholder="930245630177351" required />
-            </div>
-            <div>
-              <label className="form-label">WABA ID *</label>
-              <input value={form.waba_id} onChange={(e) => setForm({ ...form, waba_id: e.target.value })}
-                className="input font-mono" placeholder="1736454720919400" required />
-            </div>
-            <div>
-              <label className="form-label">Permanent Access Token *</label>
-              <div className="relative">
-                <input type={showToken ? 'text' : 'password'} value={form.access_token}
-                  onChange={(e) => setForm({ ...form, access_token: e.target.value })}
-                  className="input pr-10 font-mono text-xs" placeholder="EAAxxxxx..." required />
-                <button type="button" onClick={() => setShowToken((s) => !s)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650">
-                  {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="form-label">Verify Token <span className="font-medium text-slate-400 text-xs">(copy to Meta webhook setup)</span></label>
-              <div className="flex gap-2">
-                <input value={form.verify_token} readOnly className="input font-mono bg-slate-50/50 flex-1 border-slate-200/80 text-slate-500 cursor-default select-all" />
-                <button type="button" onClick={() => copyToClipboard(form.verify_token)}
-                  className="btn-secondary px-3.5 flex-shrink-0 rounded-xl"><Copy size={16} /></button>
-              </div>
-            </div>
-            <button type="submit" disabled={saving}
-              className="btn-primary flex items-center gap-2 w-full justify-center py-3 text-sm">
-              <Save size={16} />{saving ? 'Saving...' : 'Save Settings'}
-            </button>
-          </form>
+          {/* WhatsApp credentials are now managed by the platform admin */}
+          <div className="card space-y-2">
+            <h2 className="font-bold text-slate-900 text-sm sm:text-base">WhatsApp Credentials</h2>
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+              Your WhatsApp API credentials (Phone Number ID, WABA ID, Access Token) are managed by the platform admin.
+              Please contact support to connect or update your WhatsApp number.
+            </p>
+          </div>
 
           {/* External Chatbot API Key */}
           <div className="card space-y-5">
