@@ -149,6 +149,7 @@ export async function POST(req: NextRequest) {
       }
 
       const components = buildMetaComponents({
+        category,
         header_type,
         header_content,
         header_handle: mediaHandle,
@@ -230,6 +231,7 @@ export async function POST(req: NextRequest) {
 
 // ─── Build Meta API components array ─────────────────────────
 function buildMetaComponents(opts: {
+  category?:      string;
   header_type:    string;
   header_content: string;
   header_handle?: string;
@@ -238,7 +240,21 @@ function buildMetaComponents(opts: {
   buttons:        { type: string; text: string; url?: string; url_type?: string; phone?: string }[];
   var_samples:    Record<string, string>;
 }) {
-  const { header_type, header_content, header_handle, body_text, footer_text, buttons, var_samples } = opts;
+  const { category, header_type, header_content, header_handle, body_text, footer_text, buttons, var_samples } = opts;
+
+  // ── AUTHENTICATION (OTP) templates use a fixed, special structure ──
+  // Meta auto-generates the body ("{{1}} is your verification code"), so a BODY
+  // with `text` is rejected. It requires an OTP button. We send COPY_CODE (no app needed).
+  if (category === 'AUTHENTICATION') {
+    const expMatch = (footer_text || '').match(/\d+/);
+    const codeExpiry = expMatch ? Math.min(90, Math.max(1, parseInt(expMatch[0]))) : 10;
+    return [
+      { type: 'BODY', add_security_recommendation: true },
+      { type: 'FOOTER', code_expiration_minutes: codeExpiry },
+      { type: 'BUTTONS', buttons: [{ type: 'OTP', otp_type: 'COPY_CODE', text: (buttons[0]?.text || 'Copy Code') }] },
+    ];
+  }
+
   const components: object[] = [];
 
   // ── HEADER component ──────────────────────────────────────

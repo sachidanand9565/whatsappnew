@@ -716,11 +716,14 @@ function TemplateModal({
     if (form.header_type === 'TEXT' && !form.header_content) {
       toast.error('Header text required'); return;
     }
-    // Meta requires a sample value for every variable in the body
-    const missingSample = detectedVars.find((v) => !varSamples[v]?.trim());
-    if (missingSample) {
-      toast.error(`Enter a sample value for ${missingSample} — Meta needs it to review the template`);
-      return;
+    // Meta requires a sample value for every variable in the body — except for
+    // AUTHENTICATION (OTP) templates, where Meta auto-generates the body.
+    if (form.category !== 'AUTHENTICATION') {
+      const missingSample = detectedVars.find((v) => !varSamples[v]?.trim());
+      if (missingSample) {
+        toast.error(`Enter a sample value for ${missingSample} — Meta needs it to review the template`);
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -803,7 +806,16 @@ function TemplateModal({
                     ${form.category === c.value ? 'border-green-600 bg-green-50/50' : 'border-slate-200 hover:border-slate-350 bg-white'}`}>
                     <input type="radio" name="category" value={c.value}
                       checked={form.category === c.value}
-                      onChange={() => setForm({ ...form, category: c.value })} className="sr-only" />
+                      onChange={() => {
+                        if (c.value === 'AUTHENTICATION') {
+                          // OTP templates: WhatsApp auto-generates the body; just fill a standard
+                          // line so the preview/validation pass. Auth templates can't have headers.
+                          setForm({ ...form, category: c.value, header_type: 'NONE', header_content: '', header_handle: '',
+                            body_text: '{{1}} is your verification code. For your security, do not share it.' });
+                        } else {
+                          setForm({ ...form, category: c.value });
+                        }
+                      }} className="sr-only" />
                     <div className="text-xl shrink-0">{c.emoji}</div>
                     <div className="min-w-0">
                       <p className="font-bold text-xs sm:text-sm text-slate-800 leading-tight">{c.label}</p>
@@ -861,10 +873,15 @@ function TemplateModal({
                 className="input resize-y min-h-[220px]" rows={12}
                 placeholder={'Hello {{1}},\n\nYour order *{{2}}* is confirmed! 🎉\n\nDelivery: {{3}}'} required />
               <p className="text-xs text-gray-400">*bold* _italic_ ~strikethrough~ · <span className={form.body_text.length > 1024 ? 'text-red-500 font-bold' : ''}>{form.body_text.length}/1024</span></p>
+              {form.category === 'AUTHENTICATION' && (
+                <div className="bg-orange-50 border border-orange-200/60 rounded-lg p-2.5 text-[11px] text-orange-700 leading-relaxed">
+                  🔐 <b>OTP template:</b> WhatsApp auto-generates the message body (e.g. <i>“123456 is your verification code”</i>) with a <b>Copy Code</b> button — aap kuch type nahi karoge. Footer me sirf <b>expiry minutes</b> (jaise “10”) daal sakte ho. Submit pe ye <b>turant approve</b> ho jata hai.
+                </div>
+              )}
             </div>
 
-            {/* Variable samples */}
-            {detectedVars.length > 0 && (
+            {/* Variable samples — not needed for AUTHENTICATION (Meta auto-generates the OTP body) */}
+            {detectedVars.length > 0 && form.category !== 'AUTHENTICATION' && (
               <div className="border border-purple-200 bg-purple-50 rounded-xl p-4 space-y-3">
                 <div>
                   <p className="text-sm font-semibold text-purple-800">Sample Values for Variables <span className="text-red-500">*</span></p>

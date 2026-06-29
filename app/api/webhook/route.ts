@@ -158,10 +158,10 @@ export async function POST(req: NextRequest) {
       const d = (msg as any).system as Record<string, unknown> | undefined;
       content = (d?.body as string) || 'System message';
     } else if (msg.type === 'unknown' || msg.type === 'unsupported') {
-      // WhatsApp Cloud API can't parse some incoming types (OTP/authentication,
-      // templates forwarded by other businesses, polls, view-once) and sends NO
-      // content — only an "unsupported" flag. We can only show a placeholder.
-      content = '📩 A message arrived that WhatsApp API can’t display (OTP, poll, or a template from another business). Please open it in the WhatsApp Business app on your phone.';
+      // WhatsApp Cloud API sends NO content for these (poll, voice/video call,
+      // view-once, etc.) — only an "unsupported" flag. Keep the phrase
+      // "Unsupported message type" so the inbox shows its styled badge.
+      content = 'Unsupported message type';
     } else {
       content = `[${msg.type}]`;
     }
