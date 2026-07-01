@@ -14,9 +14,9 @@ const faqs = [
 ];
 
 const supportOptions = [
-  { icon: Phone,         title: 'Call Us',        value: '+91 6386103750',        desc: 'Mon–Sat, 9 AM – 7 PM IST',  href: 'tel:+916386103750',            iconBg: 'bg-green-50',    iconColor: 'text-green-600',    btnText: 'Call Now',          btnStyle: 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/10' },
-  { icon: Mail,          title: 'Email Support',  value: 'sachi274406@gmail.com', desc: 'We reply within 24 hours',   href: 'mailto:sachi274406@gmail.com', iconBg: 'bg-emerald-50',  iconColor: 'text-emerald-600',  btnText: 'Send Email',      btnStyle: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/10' },
-  { icon: MessageCircle, title: 'WhatsApp Chat',  value: '+91 6386103750',        desc: 'Chat directly on WhatsApp', href: 'https://wa.me/916386103750',   iconBg: 'bg-emerald-50/50', iconColor: 'text-emerald-500', btnText: 'Chat on WhatsApp', btnStyle: 'bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white shadow-green-500/10' },
+  { icon: Phone,         title: 'Call Us',        value: '+91 9654603750',        desc: 'Mon–Sat, 9 AM – 7 PM IST',  href: 'tel:+919654603750',            iconBg: 'bg-green-50',    iconColor: 'text-green-600',    btnText: 'Call Now',          btnStyle: 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/10' },
+  { icon: Mail,          title: 'Email Support',  value: 'info@skwebtech.in', desc: 'We reply within 24 hours',   href: 'mailto:info@skwebtech.in', iconBg: 'bg-emerald-50',  iconColor: 'text-emerald-600',  btnText: 'Send Email',      btnStyle: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/10' },
+  { icon: MessageCircle, title: 'WhatsApp Chat',  value: '+91 9654603750',        desc: 'Chat directly on WhatsApp', href: 'https://wa.me/919654603750',   iconBg: 'bg-emerald-50/50', iconColor: 'text-emerald-500', btnText: 'Chat on WhatsApp', btnStyle: 'bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white shadow-green-500/10' },
 ];
 
 const highlights = [
@@ -122,11 +122,11 @@ export default function SupportPage() {
             <p className="text-green-100/80 text-xs font-bold tracking-wider mt-1.5 uppercase">INNOVATE &bull; DEVELOP &bull; ELEVATE</p>
           </div>
           <div className="flex flex-wrap md:flex-nowrap justify-center gap-3.5 text-xs w-full md:w-auto relative z-10">
-            <a href="tel:+916386103750" className="flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 px-5 py-3 rounded-xl transition text-white font-bold border border-white/10 shadow-sm whitespace-nowrap">
-              <Phone size={14} /> +91 6386103750
+            <a href="tel:+919654603750" className="flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 px-5 py-3 rounded-xl transition text-white font-bold border border-white/10 shadow-sm whitespace-nowrap">
+              <Phone size={14} /> +91 9654603750
             </a>
-            <a href="mailto:sachi274406@gmail.com" className="flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 px-5 py-3 rounded-xl transition text-white font-bold border border-white/10 shadow-sm whitespace-nowrap">
-              <Mail size={14} /> sachi274406@gmail.com
+            <a href="mailto:info@skwebtech.in" className="flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 px-5 py-3 rounded-xl transition text-white font-bold border border-white/10 shadow-sm whitespace-nowrap">
+              <Mail size={14} /> info@skwebtech.in
             </a>
           </div>
         </div>
@@ -197,11 +197,11 @@ export default function SupportPage() {
           <h2 className="text-xl sm:text-2xl font-extrabold mb-2 text-slate-800">Still Have Questions?</h2>
           <p className="text-slate-550 text-sm sm:text-base mb-8">Our support team is just a message away.</p>
           <div className="flex flex-col sm:flex-row gap-3.5 justify-center">
-            <a href="mailto:sachi274406@gmail.com" className="btn-primary py-3 px-8 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+            <a href="mailto:info@skwebtech.in" className="btn-primary py-3 px-8 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
               <Mail size={16} /> Email Us
             </a>
-            <a href="tel:+916386103750" className="btn-secondary py-3 px-8 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border border-slate-200">
-              <Phone size={16} /> Call +91 6386103750
+            <a href="tel:+919654603750" className="btn-secondary py-3 px-8 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border border-slate-200">
+              <Phone size={16} /> Call +91 9654603750
             </a>
           </div>
         </div>

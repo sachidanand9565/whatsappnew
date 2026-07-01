@@ -24,12 +24,12 @@ const jsonLd = {
       logo: { '@type': 'ImageObject', url: 'https://wa.skwebtech.in/logo.png' },
       contactPoint: {
         '@type': 'ContactPoint',
-        telephone: '+91-6386103750',
+        telephone: '+91-9654603750',
         contactType: 'customer support',
-        email: 'sachi274406@gmail.com',
+        email: 'info@skwebtech.in',
         availableLanguage: ['English', 'Hindi'],
       },
-      sameAs: ['https://wa.me/916386103750'],
+      sameAs: ['https://wa.me/919654603750'],
     },
     {
       '@type': 'WebSite',
@@ -59,7 +59,7 @@ const jsonLd = {
       mainEntity: [
         { '@type': 'Question', name: 'What is SK WEBTECH?', acceptedAnswer: { '@type': 'Answer', text: 'SK WEBTECH is a WhatsApp Business SaaS platform for sending bulk campaigns, managing leads, automating replies with chatbots, and viewing analytics.' } },
         { '@type': 'Question', name: 'Is SK WEBTECH free?', acceptedAnswer: { '@type': 'Answer', text: 'Yes, SK WEBTECH offers a free plan to get started. Premium plans with advanced features are also available.' } },
-        { '@type': 'Question', name: 'How do I contact SK WEBTECH support?', acceptedAnswer: { '@type': 'Answer', text: 'You can reach SK WEBTECH support at +91 6386103750 or email sachi274406@gmail.com.' } },
+        { '@type': 'Question', name: 'How do I contact SK WEBTECH support?', acceptedAnswer: { '@type': 'Answer', text: 'You can reach SK WEBTECH support at +91 9654603750 or email info@skwebtech.in.' } },
       ],
     },
   ],

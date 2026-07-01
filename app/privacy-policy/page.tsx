@@ -105,7 +105,7 @@ export default function PrivacyPolicyPage() {
           </p>
           <div className="mt-3 text-gray-700">
             <p><strong>SK WEBTECH</strong></p>
-            <p>Email: <a href="mailto:sachi274406@gmail.com" className="text-blue-600 hover:underline">sachi274406@gmail.com</a></p>
+            <p>Email: <a href="mailto:info@skwebtech.in" className="text-blue-600 hover:underline">info@skwebtech.in</a></p>
             <p>Website: <a href="https://wa.skwebtech.in" className="text-blue-600 hover:underline">wa.skwebtech.in</a></p>
           </div>
         </section>
